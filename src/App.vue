@@ -558,16 +558,22 @@ body,
 }
 
 .content-grid {
+  --rail-map-gap: 18px;
+
   flex: 1;
+  position: relative;
   display: grid;
-  grid-template-columns: 56px minmax(0, 1fr) 56px;
-  gap: 14px;
+  grid-template-columns: minmax(0, 1fr);
   min-height: 0;
   align-items: stretch;
 }
 
 .side-rail {
-  position: relative;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 44px;
+  margin: var(--rail-map-gap);
   z-index: 1;
   pointer-events: auto;
   min-width: 0;
@@ -575,13 +581,11 @@ body,
 }
 
 .rail-left {
-  grid-column: 1;
-  grid-row: 1;
+  left: 0;
 }
 
 .rail-right {
-  grid-column: 3;
-  grid-row: 1;
+  right: 0;
 }
 
 .rail-actions {
@@ -590,8 +594,8 @@ body,
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
-  padding: 4px 0;
+  gap: 20px;
+  padding: 0;
 }
 
 .rail-button {
@@ -648,11 +652,11 @@ body,
 }
 
 .rail-left .rail-button::after {
-  left: calc(100% + 10px);
+  left: calc(100% + var(--rail-map-gap));
 }
 
 .rail-right .rail-button::after {
-  right: calc(100% + 10px);
+  right: calc(100% + var(--rail-map-gap));
 }
 
 .rail-button:hover::after,
@@ -672,7 +676,7 @@ body,
   position: absolute;
   top: 0;
   z-index: 3;
-  width: min(302px, calc(100vw - 168px));
+  width: min(302px, calc(100vw - 88px - 4 * var(--rail-map-gap)));
   max-height: 100%;
   overflow-y: auto;
   scrollbar-width: thin;
@@ -689,11 +693,11 @@ body,
 }
 
 .panel-left {
-  left: calc(100% + 12px);
+  left: calc(100% + var(--rail-map-gap));
 }
 
 .panel-right {
-  right: calc(100% + 12px);
+  right: calc(100% + var(--rail-map-gap));
 }
 
 .panel-head {
@@ -924,7 +928,7 @@ body,
 
 .map-stage {
   position: relative;
-  grid-column: 1 / -1;
+  grid-column: 1;
   grid-row: 1;
   min-width: 0;
   min-height: 0;
@@ -1068,7 +1072,7 @@ body,
 
 @media (max-width: 1439px) {
   .rail-panel {
-    width: min(286px, calc(100vw - 156px));
+    width: min(286px, calc(100vw - 88px - 4 * var(--rail-map-gap)));
   }
 }
 
@@ -1112,6 +1116,10 @@ body,
   }
 
   .side-rail {
+    position: relative;
+    inset: auto;
+    width: auto;
+    margin: 0;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
