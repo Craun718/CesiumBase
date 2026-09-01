@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import CesiumMap from './components/CesiumMap.vue'
+import DeckMap from './components/DeckMap.vue'
 
 const overviewMetrics = [
   { label: '监测目标', value: '1,286', trend: '+24' },
@@ -36,7 +36,7 @@ const resourceLoads = [
       <div class="brand">
         <span class="brand-mark" aria-hidden="true"></span>
         <div>
-          <p>CESIUM BASE</p>
+          <p>DECK.GL BASE</p>
           <h1>数字态势监控中心</h1>
         </div>
       </div>
@@ -82,7 +82,7 @@ const resourceLoads = [
         </aside>
 
         <div class="map-stage">
-          <CesiumMap />
+          <DeckMap />
           <span class="stage-corner top-left"></span>
           <span class="stage-corner top-right"></span>
           <span class="stage-label" aria-hidden="true">三维态势视图</span>
@@ -131,8 +131,8 @@ const resourceLoads = [
 
     <footer class="statusbar">
       <div class="status-group">
-        <span>3D MODE</span>
-        <span>WGS 84</span>
+        <span>WEBGL 2</span>
+        <span>3D TERRAIN</span>
         <span>OSM TILE</span>
       </div>
       <div class="status-group">
