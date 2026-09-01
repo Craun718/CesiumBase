@@ -466,7 +466,6 @@ body,
   min-width: 0;
   min-height: 0;
   display: flex;
-  margin: 14px var(--edge-gutter);
   pointer-events: none;
 }
 
@@ -1081,7 +1080,6 @@ body,
   }
 
   .dashboard-body {
-    padding: 10px var(--edge-gutter);
     overflow: hidden;
   }
 
