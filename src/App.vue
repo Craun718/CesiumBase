@@ -1,5 +1,30 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import DeckMap from './components/DeckMap.vue'
+
+type LeftPanelId = 'overview' | 'distribution'
+type RightPanelId = 'alerts' | 'resources'
+
+const activeLeftPanel = ref<LeftPanelId | null>(null)
+const activeRightPanel = ref<RightPanelId | null>(null)
+
+const leftActions = [
+  { id: 'overview', label: '态势总览', icon: 'bi-speedometer2' },
+  { id: 'distribution', label: '区域分布', icon: 'bi-bar-chart-line' },
+] satisfies Array<{ id: LeftPanelId; label: string; icon: string }>
+
+const rightActions = [
+  { id: 'alerts', label: '实时告警', icon: 'bi-bell' },
+  { id: 'resources', label: '资源负载', icon: 'bi-cpu' },
+] satisfies Array<{ id: RightPanelId; label: string; icon: string }>
+
+function toggleLeftPanel(panel: LeftPanelId) {
+  activeLeftPanel.value = activeLeftPanel.value === panel ? null : panel
+}
+
+function toggleRightPanel(panel: RightPanelId) {
+  activeRightPanel.value = activeRightPanel.value === panel ? null : panel
+}
 
 const overviewMetrics = [
   { label: '监测目标', value: '1,286', trend: '+24' },
@@ -34,7 +59,9 @@ const resourceLoads = [
   <div class="screen-shell">
     <header class="topbar">
       <div class="brand">
-        <span class="brand-mark" aria-hidden="true"></span>
+        <span class="brand-mark" aria-hidden="true">
+          <i class="bi bi-globe2"></i>
+        </span>
         <div>
           <p>DECK.GL BASE</p>
           <h1>数字态势监控中心</h1>
@@ -49,11 +76,44 @@ const resourceLoads = [
 
     <main class="dashboard-body">
       <div class="content-grid">
-        <aside class="side-rail rail-left" aria-label="态势总览">
-          <section class="floating-panel">
+        <aside class="side-rail rail-left" aria-label="左侧操作">
+          <div class="rail-actions">
+            <button
+              v-for="action in leftActions"
+              :key="action.id"
+              class="rail-button"
+              :class="{ 'is-active': activeLeftPanel === action.id }"
+              type="button"
+              :aria-expanded="activeLeftPanel === action.id"
+              :aria-controls="`left-${action.id}-panel`"
+              :data-tip="action.label"
+              @click="toggleLeftPanel(action.id)"
+            >
+              <i class="bi" :class="action.icon" aria-hidden="true"></i>
+            </button>
+          </div>
+
+          <section
+            v-if="activeLeftPanel === 'overview'"
+            id="left-overview-panel"
+            class="floating-panel rail-panel panel-left"
+            role="region"
+            aria-label="态势总览"
+            @keydown.escape="activeLeftPanel = null"
+          >
             <div class="panel-head">
-              <h2>态势总览</h2>
-              <span class="panel-tag">TOTAL</span>
+              <div class="panel-heading">
+                <h2>态势总览</h2>
+                <span class="panel-tag">TOTAL</span>
+              </div>
+              <button
+                class="panel-close"
+                type="button"
+                aria-label="关闭态势总览"
+                @click="activeLeftPanel = null"
+              >
+                <i class="bi bi-x-lg" aria-hidden="true"></i>
+              </button>
             </div>
             <div class="metric-grid">
               <article v-for="metric in overviewMetrics" :key="metric.label">
@@ -64,10 +124,27 @@ const resourceLoads = [
             </div>
           </section>
 
-          <section class="floating-panel">
+          <section
+            v-if="activeLeftPanel === 'distribution'"
+            id="left-distribution-panel"
+            class="floating-panel rail-panel panel-left"
+            role="region"
+            aria-label="区域分布"
+            @keydown.escape="activeLeftPanel = null"
+          >
             <div class="panel-head">
-              <h2>区域分布</h2>
-              <span class="panel-tag">REGION</span>
+              <div class="panel-heading">
+                <h2>区域分布</h2>
+                <span class="panel-tag">REGION</span>
+              </div>
+              <button
+                class="panel-close"
+                type="button"
+                aria-label="关闭区域分布"
+                @click="activeLeftPanel = null"
+              >
+                <i class="bi bi-x-lg" aria-hidden="true"></i>
+              </button>
             </div>
             <div class="distribution-list">
               <div v-for="area in areaDistribution" :key="area.name" class="distribution-row">
@@ -83,18 +160,47 @@ const resourceLoads = [
 
         <div class="map-stage">
           <DeckMap />
-          <span class="stage-corner top-left"></span>
-          <span class="stage-corner top-right"></span>
           <span class="stage-label" aria-hidden="true">三维态势视图</span>
-          <span class="stage-corner bottom-left"></span>
-          <span class="stage-corner bottom-right"></span>
         </div>
 
-        <aside class="side-rail rail-right" aria-label="实时告警与资源负载">
-          <section class="floating-panel">
+        <aside class="side-rail rail-right" aria-label="右侧操作">
+          <div class="rail-actions">
+            <button
+              v-for="action in rightActions"
+              :key="action.id"
+              class="rail-button"
+              :class="{ 'is-active': activeRightPanel === action.id }"
+              type="button"
+              :aria-expanded="activeRightPanel === action.id"
+              :aria-controls="`right-${action.id}-panel`"
+              :data-tip="action.label"
+              @click="toggleRightPanel(action.id)"
+            >
+              <i class="bi" :class="action.icon" aria-hidden="true"></i>
+            </button>
+          </div>
+
+          <section
+            v-if="activeRightPanel === 'alerts'"
+            id="right-alerts-panel"
+            class="floating-panel rail-panel panel-right"
+            role="region"
+            aria-label="实时告警"
+            @keydown.escape="activeRightPanel = null"
+          >
             <div class="panel-head">
-              <h2>实时告警</h2>
-              <span class="panel-tag is-alert">ALERT</span>
+              <div class="panel-heading">
+                <h2>实时告警</h2>
+                <span class="panel-tag is-alert">ALERT</span>
+              </div>
+              <button
+                class="panel-close"
+                type="button"
+                aria-label="关闭实时告警"
+                @click="activeRightPanel = null"
+              >
+                <i class="bi bi-x-lg" aria-hidden="true"></i>
+              </button>
             </div>
             <ul class="alert-list">
               <li v-for="alert in alerts" :key="alert.title" :class="alert.level">
@@ -107,10 +213,27 @@ const resourceLoads = [
             </ul>
           </section>
 
-          <section class="floating-panel">
+          <section
+            v-if="activeRightPanel === 'resources'"
+            id="right-resources-panel"
+            class="floating-panel rail-panel panel-right"
+            role="region"
+            aria-label="资源负载"
+            @keydown.escape="activeRightPanel = null"
+          >
             <div class="panel-head">
-              <h2>资源负载</h2>
-              <span class="panel-tag">LOAD</span>
+              <div class="panel-heading">
+                <h2>资源负载</h2>
+                <span class="panel-tag">LOAD</span>
+              </div>
+              <button
+                class="panel-close"
+                type="button"
+                aria-label="关闭资源负载"
+                @click="activeRightPanel = null"
+              >
+                <i class="bi bi-x-lg" aria-hidden="true"></i>
+              </button>
             </div>
             <div class="resource-list">
               <div v-for="resource in resourceLoads" :key="resource.name">
@@ -225,8 +348,9 @@ body,
   height: 100svh;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
-  gap: 14px;
-  padding: 18px;
+  gap: 0;
+  padding: 0;
+  --edge-gutter: 18px;
   overflow: hidden;
   background: #030913;
 }
@@ -235,6 +359,7 @@ body,
   min-width: 0;
   min-height: 0;
   display: flex;
+  margin: 14px var(--edge-gutter);
   pointer-events: none;
 }
 
@@ -247,14 +372,15 @@ body,
 
 .topbar {
   border: 0;
-  background: transparent;
+  border-bottom: 1px solid var(--panel-border);
+  background: #0a2540;
   box-shadow: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 20px;
   min-height: 74px;
-  padding: 0 4px;
+  padding: 0 var(--edge-gutter);
 }
 
 .brand {
@@ -265,36 +391,19 @@ body,
 }
 
 .brand-mark {
-  position: relative;
   flex: 0 0 auto;
+  display: grid;
+  place-items: center;
   width: 38px;
   height: 38px;
   border: 1px solid rgba(72, 229, 255, 0.72);
   border-radius: 4px;
 }
 
-.brand-mark::before,
-.brand-mark::after {
-  position: absolute;
-  content: '';
-}
-
-.brand-mark::before {
-  top: 7px;
-  left: 9px;
-  width: 18px;
-  height: 10px;
-  border: 1px solid var(--cyan);
-  border-radius: 50%;
-}
-
-.brand-mark::after {
-  top: 15px;
-  left: 8px;
-  width: 20px;
-  height: 10px;
-  border: 1px solid rgba(87, 164, 255, 0.86);
-  border-radius: 50%;
+.brand-mark > .bi {
+  color: var(--cyan);
+  font-size: 22px;
+  line-height: 1;
 }
 
 .brand p {
@@ -345,7 +454,7 @@ body,
 .content-grid {
   flex: 1;
   display: grid;
-  grid-template-columns: minmax(252px, 328px) minmax(0, 1fr) minmax(252px, 328px);
+  grid-template-columns: 56px minmax(0, 1fr) 56px;
   gap: 14px;
   min-height: 0;
   align-items: stretch;
@@ -355,9 +464,8 @@ body,
   position: relative;
   z-index: 1;
   pointer-events: auto;
-  display: grid;
+  min-width: 0;
   max-height: 100%;
-  gap: 14px;
 }
 
 .rail-left {
@@ -370,6 +478,82 @@ body,
   grid-row: 1;
 }
 
+.rail-actions {
+  position: relative;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 0;
+}
+
+.rail-button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid rgba(79, 151, 255, 0.32);
+  border-radius: 5px;
+  color: var(--text-secondary);
+  background: rgba(7, 20, 42, 0.86);
+  transition:
+    color 160ms ease,
+    border-color 160ms ease,
+    background-color 160ms ease;
+}
+
+.rail-button > .bi {
+  font-size: 19px;
+  line-height: 1;
+}
+
+.rail-button:hover,
+.rail-button:focus-visible,
+.rail-button.is-active {
+  border-color: rgba(72, 229, 255, 0.76);
+  color: var(--cyan);
+  background: rgba(16, 47, 83, 0.94);
+}
+
+.rail-button:focus-visible {
+  outline: 2px solid rgba(72, 229, 255, 0.42);
+  outline-offset: 2px;
+}
+
+.rail-button::after {
+  position: absolute;
+  z-index: 5;
+  padding: 5px 8px;
+  border: 1px solid var(--panel-border);
+  border-radius: 3px;
+  color: var(--text-primary);
+  font-size: 11px;
+  line-height: 1;
+  white-space: nowrap;
+  pointer-events: none;
+  content: attr(data-tip);
+  background: rgba(7, 20, 42, 0.96);
+  opacity: 0;
+  transform: translateY(-50%);
+  transition: opacity 120ms ease;
+}
+
+.rail-left .rail-button::after {
+  left: calc(100% + 10px);
+}
+
+.rail-right .rail-button::after {
+  right: calc(100% + 10px);
+}
+
+.rail-button:hover::after,
+.rail-button:focus-visible::after {
+  opacity: 1;
+}
+
 .floating-panel {
   position: relative;
   min-width: 0;
@@ -378,28 +562,32 @@ body,
   border-radius: 6px;
 }
 
-.floating-panel::before,
-.floating-panel::after {
+.rail-panel {
   position: absolute;
-  width: 14px;
-  height: 14px;
-  pointer-events: none;
-  content: '';
-  border-color: var(--cyan);
+  top: 0;
+  z-index: 3;
+  width: min(302px, calc(100vw - 168px));
+  max-height: 100%;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(72, 229, 255, 0.45) transparent;
 }
 
-.floating-panel::before {
-  top: -1px;
-  right: -1px;
-  border-top: 2px solid;
-  border-right: 2px solid;
+.rail-panel::-webkit-scrollbar {
+  width: 4px;
 }
 
-.floating-panel::after {
-  bottom: -1px;
-  left: -1px;
-  border-bottom: 2px solid;
-  border-left: 2px solid;
+.rail-panel::-webkit-scrollbar-thumb {
+  border-radius: 2px;
+  background: rgba(72, 229, 255, 0.45);
+}
+
+.panel-left {
+  left: calc(100% + 12px);
+}
+
+.panel-right {
+  right: calc(100% + 12px);
 }
 
 .panel-head {
@@ -417,6 +605,39 @@ body,
   font-size: 15px;
   font-weight: 650;
   line-height: 1.25;
+}
+
+.panel-heading {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.panel-close {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  color: var(--text-muted);
+  background: transparent;
+}
+
+.panel-close:hover,
+.panel-close:focus-visible {
+  border-color: var(--panel-border);
+  color: var(--text-primary);
+  background: rgba(31, 62, 104, 0.5);
+}
+
+.panel-close:focus-visible {
+  outline: 2px solid rgba(72, 229, 255, 0.42);
+  outline-offset: 2px;
 }
 
 .panel-tag {
@@ -526,41 +747,6 @@ body,
   min-width: 0;
   min-height: 0;
   pointer-events: auto;
-}
-
-.stage-corner {
-  position: absolute;
-  width: 38px;
-  height: 38px;
-  border-color: rgba(72, 229, 255, 0.58);
-}
-
-.stage-corner.top-left {
-  top: 2px;
-  left: 4px;
-  border-top: 2px solid;
-  border-left: 2px solid;
-}
-
-.stage-corner.top-right {
-  top: 2px;
-  right: 4px;
-  border-top: 2px solid;
-  border-right: 2px solid;
-}
-
-.stage-corner.bottom-left {
-  bottom: 2px;
-  left: 4px;
-  border-bottom: 2px solid;
-  border-left: 2px solid;
-}
-
-.stage-corner.bottom-right {
-  bottom: 2px;
-  right: 4px;
-  border-bottom: 2px solid;
-  border-right: 2px solid;
 }
 
 .stage-label {
@@ -674,13 +860,14 @@ body,
 
 .statusbar {
   border: 0;
-  background: transparent;
+  border-top: 1px solid var(--panel-border);
+  background: #0a2540;
   box-shadow: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
   min-height: 36px;
-  padding: 0 4px;
+  padding: 0 var(--edge-gutter);
 }
 
 .status-group {
@@ -699,25 +886,26 @@ body,
 
 
 @media (max-width: 1439px) {
-  .content-grid {
-    grid-template-columns:
-      minmax(238px, 276px) minmax(0, 1fr) minmax(238px, 276px);
+  .rail-panel {
+    width: min(286px, calc(100vw - 156px));
   }
 }
 
 @media (max-width: 1023px) {
   .screen-shell {
-    gap: 10px;
-    padding: 12px;
+    gap: 0;
+    padding: 0;
+    --edge-gutter: 12px;
   }
 
   .dashboard-body {
+    padding: 10px var(--edge-gutter);
     overflow: hidden;
   }
 
   .topbar {
     min-height: 62px;
-    padding: 0;
+    padding: 0 var(--edge-gutter);
   }
 
   .brand h1 {
@@ -745,31 +933,44 @@ body,
 
   .side-rail {
     display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-start;
     max-width: 100%;
     padding: 2px;
-    overflow-x: auto;
+    overflow: visible;
     scrollbar-width: thin;
     scrollbar-color: rgba(72, 229, 255, 0.45) transparent;
     pointer-events: auto;
   }
 
-  .side-rail::-webkit-scrollbar {
-    height: 4px;
+  .rail-actions {
+    flex: 0 0 auto;
+    flex-direction: row;
   }
 
-  .side-rail::-webkit-scrollbar-thumb {
-    border-radius: 2px;
-    background: rgba(72, 229, 255, 0.45);
+  .rail-button::after {
+    display: none;
   }
 
-  .floating-panel {
-    flex: 0 0 272px;
+  .rail-panel {
+    position: relative;
+    flex-basis: 100%;
+    width: 100%;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .panel-left,
+  .panel-right {
+    left: auto;
+    right: auto;
   }
 
   .statusbar {
     flex-wrap: wrap;
     gap: 6px;
-    padding: 7px 10px;
+    padding: 7px var(--edge-gutter);
   }
 
   .status-group {
@@ -782,6 +983,8 @@ body,
   .topbar {
     align-items: flex-start;
     flex-direction: column;
+    gap: 8px;
+    padding: 12px var(--edge-gutter);
   }
 
   .brand h1 {
@@ -792,8 +995,9 @@ body,
     display: none;
   }
 
-  .floating-panel {
-    flex-basis: 248px;
+  .rail-button {
+    width: 42px;
+    height: 42px;
   }
 }
 </style>

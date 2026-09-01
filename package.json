@@ -12,6 +12,7 @@
     "@deck.gl/core": "^9.3.11",
     "@deck.gl/geo-layers": "^9.3.11",
     "@deck.gl/layers": "^9.3.11",
+    "bootstrap-icons": "^1.13.1",
     "vue": "^3.5.41"
   },
   "devDependencies": {

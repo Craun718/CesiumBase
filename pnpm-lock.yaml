@@ -17,6 +17,9 @@ importers:
       '@deck.gl/layers':
         specifier: ^9.3.11
         version: 9.3.11(@deck.gl/core@9.3.11)(@loaders.gl/core@4.4.5)(@luma.gl/core@9.3.6)(@luma.gl/engine@9.3.6(@luma.gl/core@9.3.6)(@luma.gl/shadertools@9.3.6(@luma.gl/core@9.3.6)))
+      bootstrap-icons:
+        specifier: ^1.13.1
+        version: 1.13.1
       vue:
         specifier: ^3.5.41
         version: 3.5.42(typescript@6.0.3)
@@ -689,6 +692,9 @@ packages:
 
   base64-js@1.5.1:
     resolution: {integrity: sha512-AKpaYlHn8t4SVbOHCy+b5+KKgvR4vrsD8vbvrbiQJps7fKDTkjkDry6ji0rUJjC0kzbNePLwzxq8iypo41qeWA==}
+
+  bootstrap-icons@1.13.1:
+    resolution: {integrity: sha512-ijombt4v6bv5CLeXvRWKy7CuM3TRTuPEuGaGKvTV5cz65rQSY8RQ2JcHt6b90cBBAC7s8fsf2EkQDldzCoXUjw==}
 
   brotli@1.3.3:
     resolution: {integrity: sha512-oTKjJdShmDuGW94SyyaoQvAjf30dZaHnjJ8uAF+u2/vGJkJbJPJAT1gDiOJP5v1Zb6f9KEyW/1HpuaWIXtGHPg==}
@@ -1908,6 +1914,8 @@ snapshots:
 
   base64-js@1.5.1:
     optional: true
+
+  bootstrap-icons@1.13.1: {}
 
   brotli@1.3.3:
     dependencies:
