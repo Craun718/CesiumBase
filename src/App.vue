@@ -59,7 +59,9 @@ const resourceLoads = [
   <div class="screen-shell">
     <header class="topbar">
       <div class="brand">
-        <span class="brand-mark" aria-hidden="true"></span>
+        <span class="brand-mark" aria-hidden="true">
+          <i class="bi bi-globe2"></i>
+        </span>
         <div>
           <p>CESIUM BASE</p>
           <h1>数字态势监控中心</h1>
@@ -346,8 +348,9 @@ body,
   height: 100svh;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
-  gap: 14px;
-  padding: 18px;
+  gap: 0;
+  padding: 0;
+  --edge-gutter: 18px;
   overflow: hidden;
   background: #030913;
 }
@@ -356,6 +359,7 @@ body,
   min-width: 0;
   min-height: 0;
   display: flex;
+  margin: 14px var(--edge-gutter);
   pointer-events: none;
 }
 
@@ -368,14 +372,15 @@ body,
 
 .topbar {
   border: 0;
-  background: transparent;
+  border-bottom: 1px solid var(--panel-border);
+  background: #0a2540;
   box-shadow: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 20px;
   min-height: 74px;
-  padding: 0 4px;
+  padding: 0 var(--edge-gutter);
 }
 
 .brand {
@@ -386,36 +391,19 @@ body,
 }
 
 .brand-mark {
-  position: relative;
   flex: 0 0 auto;
+  display: grid;
+  place-items: center;
   width: 38px;
   height: 38px;
   border: 1px solid rgba(72, 229, 255, 0.72);
   border-radius: 4px;
 }
 
-.brand-mark::before,
-.brand-mark::after {
-  position: absolute;
-  content: '';
-}
-
-.brand-mark::before {
-  top: 7px;
-  left: 9px;
-  width: 18px;
-  height: 10px;
-  border: 1px solid var(--cyan);
-  border-radius: 50%;
-}
-
-.brand-mark::after {
-  top: 15px;
-  left: 8px;
-  width: 20px;
-  height: 10px;
-  border: 1px solid rgba(87, 164, 255, 0.86);
-  border-radius: 50%;
+.brand-mark > .bi {
+  color: var(--cyan);
+  font-size: 22px;
+  line-height: 1;
 }
 
 .brand p {
@@ -872,13 +860,14 @@ body,
 
 .statusbar {
   border: 0;
-  background: transparent;
+  border-top: 1px solid var(--panel-border);
+  background: #0a2540;
   box-shadow: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
   min-height: 36px;
-  padding: 0 4px;
+  padding: 0 var(--edge-gutter);
 }
 
 .status-group {
@@ -904,17 +893,19 @@ body,
 
 @media (max-width: 1023px) {
   .screen-shell {
-    gap: 10px;
-    padding: 12px;
+    gap: 0;
+    padding: 0;
+    --edge-gutter: 12px;
   }
 
   .dashboard-body {
+    padding: 10px var(--edge-gutter);
     overflow: hidden;
   }
 
   .topbar {
     min-height: 62px;
-    padding: 0;
+    padding: 0 var(--edge-gutter);
   }
 
   .brand h1 {
@@ -979,7 +970,7 @@ body,
   .statusbar {
     flex-wrap: wrap;
     gap: 6px;
-    padding: 7px 10px;
+    padding: 7px var(--edge-gutter);
   }
 
   .status-group {
@@ -992,6 +983,8 @@ body,
   .topbar {
     align-items: flex-start;
     flex-direction: column;
+    gap: 8px;
+    padding: 12px var(--edge-gutter);
   }
 
   .brand h1 {
