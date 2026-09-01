@@ -21,19 +21,4 @@ useCesiumMap(mapContainer)
   width: 100%;
   height: 100%;
 }
-
-.cesium-map :deep(.cesium-widget-credits) {
-  color: rgba(220, 236, 255, 0.72);
-  font-size: 11px;
-}
-
-.cesium-map :deep(.cesium-widget-credits a) {
-  color: rgba(72, 229, 255, 0.82);
-}
-
-:deep(.cesium-viewer-bottom) {
-  bottom: 8px;
-  left: 12px;
-}
-
 </style>

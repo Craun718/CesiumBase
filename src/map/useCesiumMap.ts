@@ -28,6 +28,8 @@ function createViewer(container: HTMLElement) {
     animation: false,
     baseLayer: new Cesium.ImageryLayer(imageryProvider),
     baseLayerPicker: false,
+    // Render credits into a detached element so the widget shows no credit bar.
+    creditContainer: document.createElement('div'),
     fullscreenButton: false,
     geocoder: false,
     homeButton: false,
