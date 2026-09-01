@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { useCesiumMap } from '../map/useCesiumMap'
-import 'cesium/Source/Widgets/widgets.css'
+import { ref } from "vue"
+import { useCesiumMap } from "../map/useCesiumMap"
+import "cesium/Source/Widgets/widgets.css"
 
 const mapContainer = ref<HTMLDivElement>()
 useCesiumMap(mapContainer)
@@ -10,7 +10,6 @@ useCesiumMap(mapContainer)
 <template>
   <div ref="mapContainer" class="cesium-map"></div>
 </template>
-
 
 <style scoped lang="scss">
 .cesium-map,

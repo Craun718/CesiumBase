@@ -1,21 +1,21 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import CesiumMap from './components/CesiumMap.vue'
+import { ref } from "vue"
+import CesiumMap from "./components/CesiumMap.vue"
 
-type LeftPanelId = 'overview' | 'distribution'
-type RightPanelId = 'alerts' | 'resources'
+type LeftPanelId = "overview" | "distribution"
+type RightPanelId = "alerts" | "resources"
 
 const activeLeftPanel = ref<LeftPanelId | null>(null)
 const activeRightPanel = ref<RightPanelId | null>(null)
 
 const leftActions = [
-  { id: 'overview', label: '态势总览', icon: 'bi-speedometer2' },
-  { id: 'distribution', label: '区域分布', icon: 'bi-bar-chart-line' },
+  { id: "overview", label: "态势总览", icon: "bi-speedometer2" },
+  { id: "distribution", label: "区域分布", icon: "bi-bar-chart-line" },
 ] satisfies Array<{ id: LeftPanelId; label: string; icon: string }>
 
 const rightActions = [
-  { id: 'alerts', label: '实时告警', icon: 'bi-bell' },
-  { id: 'resources', label: '资源负载', icon: 'bi-cpu' },
+  { id: "alerts", label: "实时告警", icon: "bi-bell" },
+  { id: "resources", label: "资源负载", icon: "bi-cpu" },
 ] satisfies Array<{ id: RightPanelId; label: string; icon: string }>
 
 function toggleLeftPanel(panel: LeftPanelId) {
@@ -27,31 +27,31 @@ function toggleRightPanel(panel: RightPanelId) {
 }
 
 const overviewMetrics = [
-  { label: '监测目标', value: '1,286', trend: '+24' },
-  { label: '在线设备', value: '1,092', trend: '96.4%' },
-  { label: '今日事件', value: '38', trend: '-6' },
-  { label: '覆盖区域', value: '36', trend: '省份' },
+  { label: "监测目标", value: "1,286", trend: "+24" },
+  { label: "在线设备", value: "1,092", trend: "96.4%" },
+  { label: "今日事件", value: "38", trend: "-6" },
+  { label: "覆盖区域", value: "36", trend: "省份" },
 ]
 
 const areaDistribution = [
-  { name: '华东区域', value: 86 },
-  { name: '华南区域', value: 72 },
-  { name: '华北区域', value: 64 },
-  { name: '西南区域', value: 48 },
-  { name: '东北区域', value: 35 },
+  { name: "华东区域", value: 86 },
+  { name: "华南区域", value: 72 },
+  { name: "华北区域", value: 64 },
+  { name: "西南区域", value: 48 },
+  { name: "东北区域", value: 35 },
 ]
 
 const alerts = [
-  { level: 'critical', title: '边界区域越限', location: 'A-07 监测网格' },
-  { level: 'warning', title: '设备信号波动', location: 'B-15 前置站点' },
-  { level: 'info', title: '图层加载完成', location: '基础影像服务' },
-  { level: 'warning', title: '资源负载升高', location: '渲染节点 03' },
+  { level: "critical", title: "边界区域越限", location: "A-07 监测网格" },
+  { level: "warning", title: "设备信号波动", location: "B-15 前置站点" },
+  { level: "info", title: "图层加载完成", location: "基础影像服务" },
+  { level: "warning", title: "资源负载升高", location: "渲染节点 03" },
 ]
 
 const resourceLoads = [
-  { name: '渲染节点', value: 68, state: '正常' },
-  { name: '影像服务', value: 46, state: '稳定' },
-  { name: '数据链路', value: 81, state: '繁忙' },
+  { name: "渲染节点", value: 68, state: "正常" },
+  { name: "影像服务", value: 46, state: "稳定" },
+  { name: "数据链路", value: 81, state: "繁忙" },
 ]
 </script>
 
@@ -267,7 +267,7 @@ const resourceLoads = [
 </template>
 
 <style>
-@import 'tailwindcss';
+@import "tailwindcss";
 
 @theme {
   --color-abyss: #030913;
@@ -282,8 +282,7 @@ const resourceLoads = [
   --color-accent-amber: #ffb648;
   --color-accent-rose: #ff5f78;
 
-  --font-interface:
-    Inter, 'HarmonyOS Sans SC', 'Microsoft YaHei', system-ui, sans-serif;
+  --font-interface: Inter, "HarmonyOS Sans SC", "Microsoft YaHei", system-ui, sans-serif;
   --font-data: ui-monospace, Consolas, monospace;
 }
 
@@ -448,7 +447,7 @@ body,
   height: 6px;
   border-radius: 50%;
   background: currentColor;
-  content: '';
+  content: "";
 }
 
 .content-grid {
@@ -884,7 +883,6 @@ body,
   white-space: nowrap;
 }
 
-
 @media (max-width: 1439px) {
   .rail-panel {
     width: min(286px, calc(100vw - 156px));
@@ -976,7 +974,6 @@ body,
   .status-group {
     gap: 10px;
   }
-
 }
 
 @media (max-width: 640px) {
