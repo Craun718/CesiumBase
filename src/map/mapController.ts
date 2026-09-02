@@ -53,7 +53,19 @@ export class MapController {
     this.engine?.setTerrainExaggerationScale(scale)
   }
 
-  setCompassVisible(visible: boolean) {
-    this.engine?.setCompassVisible(visible)
+  getCameraHeading() {
+    return this.engine?.getCameraHeading() ?? 0
+  }
+
+  setCameraHeading(heading: number) {
+    this.engine?.setCameraHeading(heading)
+  }
+
+  resetCameraNorth() {
+    this.engine?.resetCameraNorth()
+  }
+
+  onCameraHeadingChange(listener: (heading: number) => void) {
+    return this.engine?.onCameraHeadingChange(listener) ?? (() => {})
   }
 }

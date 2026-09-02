@@ -17,7 +17,10 @@ export interface MapEngine {
   setNorthLock(enabled: boolean): void
   setTerrainExaggeration(enabled: boolean, scale: number): void
   setTerrainExaggerationScale(scale: number): void
-  setCompassVisible(visible: boolean): void
+  getCameraHeading(): number
+  setCameraHeading(heading: number): void
+  resetCameraNorth(): void
+  onCameraHeadingChange(listener: (heading: number) => void): () => void
 }
 
 export type MapEngineFactory = () => MapEngine

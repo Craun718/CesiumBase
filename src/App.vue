@@ -22,7 +22,7 @@ const sceneMode = ref<SceneMode>("3d")
 const rotateEnabled = ref(false)
 const northLocked = ref(false)
 const terrainEnabled = ref(false)
-const compassVisible = ref(false)
+const compassVisible = ref(true)
 const terrainScale = ref(1)
 const mapController = provideMapController()
 
@@ -170,7 +170,6 @@ function activateMapOperation(operationId: MapOperationId) {
   }
 
   compassVisible.value = !compassVisible.value
-  mapController.setCompassVisible(compassVisible.value)
 }
 
 function handleTerrainScaleInput(event: Event) {
@@ -366,7 +365,7 @@ const resourceLoads = [
         </aside>
 
         <div class="map-stage">
-          <MapViewport />
+          <MapViewport :compass-visible="compassVisible" :north-locked="northLocked" />
           <span class="stage-label" aria-hidden="true">
             {{ sceneMode === "3d" ? "三维态势视图" : "二维态势视图" }}
           </span>

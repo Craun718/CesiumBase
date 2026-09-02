@@ -4,13 +4,18 @@ import { createViewer } from "./createViewer"
 import { flyToBounds, setInitialCamera } from "./cameraOperations"
 import {
   configureScene,
-  setCompassVisible,
   setNorthLock,
   setRotateBrowse,
   setSceneMode,
   setTerrainExaggeration,
   setTerrainExaggerationScale,
 } from "./sceneOperations"
+import {
+  getCameraHeading,
+  onCameraHeadingChange,
+  resetCameraNorth,
+  setCameraHeading,
+} from "./cameraOperations"
 import { addProvinceBoundaries } from "./provinceBoundaries"
 
 export class CesiumMapEngine implements MapEngine {
@@ -83,12 +88,32 @@ export class CesiumMapEngine implements MapEngine {
     }
   }
 
-  setCompassVisible(visible: boolean) {
+  getCameraHeading() {
+    const viewer = this.getActiveViewer()
+
+    return viewer ? getCameraHeading(viewer) : 0
+  }
+
+  setCameraHeading(heading: number) {
     const viewer = this.getActiveViewer()
 
     if (viewer) {
-      setCompassVisible(viewer, visible)
+      setCameraHeading(viewer, heading)
     }
+  }
+
+  resetCameraNorth() {
+    const viewer = this.getActiveViewer()
+
+    if (viewer) {
+      resetCameraNorth(viewer)
+    }
+  }
+
+  onCameraHeadingChange(listener: (heading: number) => void) {
+    const viewer = this.getActiveViewer()
+
+    return viewer ? onCameraHeadingChange(viewer, listener) : () => {}
   }
 
   private getActiveViewer() {
