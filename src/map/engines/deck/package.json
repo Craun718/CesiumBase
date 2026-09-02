@@ -1,0 +1,10 @@
+{
+  "name": "@cesium-base/map-engine-deck",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@deck.gl/core": "^9.3.11",
+    "@deck.gl/geo-layers": "^9.3.11",
+    "@deck.gl/layers": "^9.3.11"
+  }
+}

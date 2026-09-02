@@ -1,3 +1,7 @@
+packages:
+  - src/map/engines/cesium
+  - src/map/engines/deck
+
 allowBuilds:
   "@parcel/watcher": true
 onlyBuiltDependencies:
