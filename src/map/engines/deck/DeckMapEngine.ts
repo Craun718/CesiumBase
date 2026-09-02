@@ -3,12 +3,19 @@ import type { MapBounds, MapEngine, SceneMode } from "../../types"
 import { createDeckLayers, getDeckTooltip, WebMercatorViewport } from "./layers"
 import { CesiumStyleTerrainController } from "./terrainController"
 
+// 视野级缩放限制（zoom 为 deck 单位），与 cesium 引擎 sceneOperations.ts 的
+// MAXIMUM_ZOOM_DISTANCE = 8_000_000（8000 km）视野量级对齐：zoom 2.5 ≈ 700 km × 2^3.5 ≈ 8000 km，
+// 两引擎缩到极限时应停在大致相同的视野；调整任一侧需同步另一侧。
+const MIN_ZOOM = 2.5
+// 近景缩放上限，与缩放下限无对齐关系，仅随原内联值提取。
+const MAX_ZOOM = 14
+
 const defaultViewState: MapViewState = {
   longitude: 108.25,
   latitude: 23.7,
   zoom: 6,
-  minZoom: 2.5,
-  maxZoom: 14,
+  minZoom: MIN_ZOOM,
+  maxZoom: MAX_ZOOM,
   pitch: 45,
   bearing: -24,
   maxPitch: 70,
