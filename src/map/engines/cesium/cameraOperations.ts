@@ -40,7 +40,7 @@ export function setCameraHeading(viewer: Cesium.Viewer, heading: number) {
   })
 }
 
-export function resetCameraNorth(viewer: Cesium.Viewer) {
+export function resetCameraNorth(viewer: Cesium.Viewer, duration = 5) {
   const camera = viewer.camera
 
   camera.flyTo({
@@ -50,7 +50,7 @@ export function resetCameraNorth(viewer: Cesium.Viewer) {
       pitch: camera.pitch,
       roll: camera.roll,
     },
-    duration: 5,
+    duration,
   })
 }
 
