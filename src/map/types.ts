@@ -1,5 +1,7 @@
 export type SceneMode = "2d" | "3d"
 
+export type MapEngineId = "cesium" | "deck-gl"
+
 export type MapBounds = {
   west: number
   south: number
@@ -17,7 +19,12 @@ export interface MapEngine {
   setNorthLock(enabled: boolean): void
   setTerrainExaggeration(enabled: boolean, scale: number): void
   setTerrainExaggerationScale(scale: number): void
-  setCompassVisible(visible: boolean): void
+  getCameraHeading(): number
+  setCameraHeading(heading: number): void
+  resetCameraNorth(): void
+  onCameraHeadingChange(listener: (heading: number) => void): () => void
 }
 
 export type MapEngineFactory = () => MapEngine
+
+export type MapEngineLoader = () => Promise<MapEngineFactory>

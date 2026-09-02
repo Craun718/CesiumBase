@@ -2,7 +2,7 @@
 import { computed, ref } from "vue"
 import MapViewport from "./components/MapViewport.vue"
 import FloatingWindow from "./components/FloatingWindow.vue"
-import { provideMapController, type SceneMode } from "./map"
+import { mapEngineId, provideMapController, type SceneMode } from "./map"
 
 type LeftPanelId = "overview" | "distribution" | "map"
 type RightPanelId = "alerts" | "resources"
@@ -22,9 +22,11 @@ const sceneMode = ref<SceneMode>("3d")
 const rotateEnabled = ref(false)
 const northLocked = ref(false)
 const terrainEnabled = ref(false)
-const compassVisible = ref(false)
+const compassVisible = ref(true)
 const terrainScale = ref(1)
 const mapController = provideMapController()
+
+const mapEngineLabel = mapEngineId === "deck-gl" ? "DECK.GL" : "CESIUM"
 
 const leftActions = [
   { id: "overview", label: "态势总览", icon: "bi-speedometer2" },
@@ -170,7 +172,6 @@ function activateMapOperation(operationId: MapOperationId) {
   }
 
   compassVisible.value = !compassVisible.value
-  mapController.setCompassVisible(compassVisible.value)
 }
 
 function handleTerrainScaleInput(event: Event) {
@@ -228,7 +229,7 @@ const resourceLoads = [
           <i class="bi bi-globe2"></i>
         </span>
         <div>
-          <p>CESIUM BASE</p>
+          <p>MAP ENGINE</p>
           <h1>数字态势监控中心</h1>
         </div>
       </div>
@@ -366,7 +367,7 @@ const resourceLoads = [
         </aside>
 
         <div class="map-stage">
-          <MapViewport />
+          <MapViewport :compass-visible="compassVisible" :north-locked="northLocked" />
           <span class="stage-label" aria-hidden="true">
             {{ sceneMode === "3d" ? "三维态势视图" : "二维态势视图" }}
           </span>
@@ -488,7 +489,7 @@ const resourceLoads = [
 
     <footer class="statusbar">
       <div class="status-group">
-        <span>{{ sceneMode === "3d" ? "3D MODE" : "2D MODE" }}</span>
+        <span>{{ mapEngineLabel }} · {{ sceneMode === "3d" ? "3D MODE" : "2D MODE" }}</span>
         <span>CGCS2000</span>
         <span>天地图影像</span>
       </div>

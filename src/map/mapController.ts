@@ -1,4 +1,5 @@
-import type { MapBounds, MapEngine, MapEngineFactory, SceneMode } from "./types"
+import { loadMapEngine } from "./engineProvider"
+import type { MapBounds, MapEngine, MapEngineLoader, SceneMode } from "./types"
 
 const guangxiBounds: MapBounds = {
   west: 105,
@@ -10,21 +11,29 @@ const guangxiBounds: MapBounds = {
 export class MapController {
   private engine?: MapEngine
 
-  private readonly createEngine: MapEngineFactory
+  private readonly createEngine: MapEngineLoader
 
-  constructor(createEngine: MapEngineFactory) {
+  private mountGeneration = 0
+
+  constructor(createEngine = loadMapEngine) {
     this.createEngine = createEngine
   }
 
-  mount(container: HTMLElement) {
+  async mount(container: HTMLElement) {
     if (this.engine) return
 
-    const engine = this.createEngine()
+    const generation = ++this.mountGeneration
+    const createEngine = await this.createEngine()
+
+    if (generation !== this.mountGeneration) return
+
+    const engine = createEngine()
     engine.mount(container)
     this.engine = engine
   }
 
   unmount() {
+    this.mountGeneration += 1
     this.engine?.unmount()
     this.engine = undefined
   }
@@ -53,7 +62,19 @@ export class MapController {
     this.engine?.setTerrainExaggerationScale(scale)
   }
 
-  setCompassVisible(visible: boolean) {
-    this.engine?.setCompassVisible(visible)
+  getCameraHeading() {
+    return this.engine?.getCameraHeading() ?? 0
+  }
+
+  setCameraHeading(heading: number) {
+    this.engine?.setCameraHeading(heading)
+  }
+
+  resetCameraNorth() {
+    this.engine?.resetCameraNorth()
+  }
+
+  onCameraHeadingChange(listener: (heading: number) => void) {
+    return this.engine?.onCameraHeadingChange(listener) ?? (() => {})
   }
 }

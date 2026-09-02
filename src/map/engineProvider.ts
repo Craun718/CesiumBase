@@ -1,5 +1,9 @@
-import { createCesiumMapEngine } from "./engines/cesium"
+import type { MapEngineId, MapEngineLoader } from "./types"
 
-export { createCesiumMapEngine }
+export const mapEngineId: MapEngineId =
+  import.meta.env.VITE_MAP_ENGINE === "deck-gl" ? "deck-gl" : "cesium"
 
-export const defaultMapEngineFactory = createCesiumMapEngine
+export const loadMapEngine: MapEngineLoader = async () => {
+  const { createMapEngine } = await import("@cesium-base/map-engine-entry")
+  return createMapEngine
+}

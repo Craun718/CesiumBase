@@ -40,5 +40,3 @@ export function setTerrainExaggeration(viewer: Cesium.Viewer, enabled: boolean, 
 export function setTerrainExaggerationScale(viewer: Cesium.Viewer, scale: number) {
   viewer.scene.verticalExaggeration = Math.max(scale, 1)
 }
-
-export function setCompassVisible(_viewer: Cesium.Viewer, _visible: boolean) {}
