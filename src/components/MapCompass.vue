@@ -36,7 +36,9 @@ watch(normalizedHeading, (heading) => {
 })
 
 const compassRotation = computed(() => -continuousHeading.value)
-const headingLabel = computed(() => `${Math.round(normalizedHeading.value)}°`)
+const headingLabel = computed(
+  () => `${Math.round(normalizedHeading.value).toString().padStart(3, "0")}°`,
+)
 
 function headingFromPointerEvent(event: PointerEvent) {
   const element = dial.value
