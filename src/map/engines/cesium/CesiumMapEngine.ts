@@ -21,10 +21,10 @@ import { addProvinceBoundaries } from "./provinceBoundaries"
 export class CesiumMapEngine implements MapEngine {
   private viewer?: Cesium.Viewer
 
-  mount(container: HTMLElement) {
+  async mount(container: HTMLElement) {
     if (this.viewer) return
 
-    const viewer = createViewer(container)
+    const viewer = await createViewer(container)
     this.viewer = viewer
 
     configureScene(viewer)

@@ -10,7 +10,7 @@ export type MapBounds = {
 }
 
 export interface MapEngine {
-  mount(container: HTMLElement): void
+  mount(container: HTMLElement): void | Promise<void>
   unmount(): void
 
   flyToBounds(bounds: MapBounds): void
