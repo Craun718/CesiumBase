@@ -32,11 +32,9 @@ type ProvinceCollection = {
   features: ProvinceFeature[]
 }
 
-const provinceBoundaryUrl = "/vector/中国_省.geojson"
+const provinceBoundaryUrl = "/vector/广西壮族自治区_自治区.geojson"
 const guangxiProvinceName = "广西壮族自治区"
-const otherProvinceBoundaryZIndex = 1
 const guangxiBoundaryZIndex = 2
-const otherProvinceColor = Cesium.Color.fromCssColorString("#00008b").withAlpha(0.8)
 const guangxiColor = Cesium.Color.fromCssColorString("#eab308")
 const outsideGuangxiColor = Cesium.Color.fromCssColorString("#031b4e").withAlpha(0.65)
 
@@ -58,14 +56,54 @@ export function useCesiumMap(container: Ref<HTMLElement | undefined>) {
   })
 }
 
-function createViewer(container: HTMLElement) {
-  const imageryProvider = new Cesium.OpenStreetMapImageryProvider({
-    url: "https://tile.openstreetmap.org/",
+// ===== 天地图底图配置 =====
+// 天地图 Key（tk）在项目根目录 .env 中配置（参考 .env.example）：
+//   VITE_TIANDITU_KEY=你的天地图Key
+// Key 申请地址：https://console.tianditu.gov.cn/api/key
+// 未配置 Key 时，加载底图会直接报错提示。
+const TIANDITU_KEY = import.meta.env.VITE_TIANDITU_KEY ?? ""
+
+const TIANDITU_SUBDOMAINS = ["0", "1", "2", "3", "4", "5", "6", "7"]
+const TIANDITU_MAXIMUM_LEVEL = 18
+
+/** 生成天地图 WMTS 瓦片服务（w = Web 墨卡托投影，与 Cesium 默认 WebMercatorTilingScheme 一致）。 */
+function createTiandituImageryProvider(layer: "img" | "cia"): Cesium.UrlTemplateImageryProvider {
+  return new Cesium.UrlTemplateImageryProvider({
+    url:
+      "https://t{s}.tianditu.gov.cn/" +
+      layer +
+      "_w/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0" +
+      "&LAYER=" +
+      layer +
+      "&STYLE=default&TILEMATRIXSET=w&FORMAT=tiles" +
+      "&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&tk=" +
+      TIANDITU_KEY.trim(),
+    subdomains: TIANDITU_SUBDOMAINS,
+    maximumLevel: TIANDITU_MAXIMUM_LEVEL,
   })
+}
+
+/** 创建天地图底图图层列表（遥感影像底图 + 影像注记），未配置 Key 时直接抛错。 */
+function createBaseImageryLayers(): Cesium.ImageryLayer[] {
+  if (TIANDITU_KEY.trim() === "") {
+    throw new Error(
+      "未配置天地图 Key，无法加载天地图底图。请在项目根目录 .env 文件中设置 VITE_TIANDITU_KEY（参考 .env.example）。",
+    )
+  }
+
+  return [
+    new Cesium.ImageryLayer(createTiandituImageryProvider("img")),
+    new Cesium.ImageryLayer(createTiandituImageryProvider("cia")),
+  ]
+}
+
+function createViewer(container: HTMLElement) {
+  const baseLayers = createBaseImageryLayers()
+  const baseLayer = baseLayers[0]
 
   const viewer = new Cesium.Viewer(container, {
     animation: false,
-    baseLayer: new Cesium.ImageryLayer(imageryProvider),
+    baseLayer,
     baseLayerPicker: false,
     // Render credits into a detached element so the widget shows no credit bar.
     creditContainer: document.createElement("div"),
@@ -83,6 +121,10 @@ function createViewer(container: HTMLElement) {
       },
     },
   })
+
+  for (const layer of baseLayers.slice(1)) {
+    viewer.imageryLayers.add(layer)
+  }
 
   configureScene(viewer)
   setInitialCamera(viewer)
@@ -136,30 +178,21 @@ async function addProvinceBoundaries(viewer: Cesium.Viewer) {
       return
     }
 
-    for (const feature of data.features) {
-      if (!isProvinceGeometry(feature.geometry)) {
-        continue
-      }
-
-      const isGuangxi = feature.properties.name === guangxiProvinceName
-      const color = isGuangxi ? guangxiColor : otherProvinceColor
-      const width = isGuangxi ? 4 : 2
-      const zIndex = isGuangxi ? guangxiBoundaryZIndex : otherProvinceBoundaryZIndex
-
-      forEachProvinceRing(feature.geometry, (ring) => {
-        addBoundary(viewer, ring, color, width, zIndex)
-      })
-    }
-
     const guangxiFeature = data.features.find(
       (feature) => feature.properties.name === guangxiProvinceName,
     )
 
-    if (guangxiFeature && isProvinceGeometry(guangxiFeature.geometry)) {
-      addOutsideGuangxiMask(viewer, guangxiFeature.geometry)
+    if (!guangxiFeature || !isProvinceGeometry(guangxiFeature.geometry)) {
+      return
     }
+
+    forEachProvinceRing(guangxiFeature.geometry, (ring) => {
+      addBoundary(viewer, ring, guangxiColor, 4, guangxiBoundaryZIndex)
+    })
+
+    addOutsideGuangxiMask(viewer, guangxiFeature.geometry)
   } catch (error) {
-    console.error("Failed to load province boundaries", error)
+    console.error("Failed to load Guangxi boundary", error)
   }
 }
 
