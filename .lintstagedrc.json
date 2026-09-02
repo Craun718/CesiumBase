@@ -1,0 +1,6 @@
+{
+  "*.{js,mjs,cjs,jsx,ts,mts,cts,tsx,vue}": ["pnpm exec oxlint --fix", "pnpm exec oxfmt --write"],
+  "!(tsconfig).json": ["pnpm exec oxfmt --write"],
+  "*.{css,less,scss,html,md,markdown,mdx,jsonc,json5}": ["pnpm exec oxfmt --write"],
+  "!(pnpm-lock).{yaml,yml}": ["pnpm exec oxfmt --write"]
+}

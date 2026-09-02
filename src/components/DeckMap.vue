@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { useDeckMap } from '../map/useDeckMap'
+import { ref } from "vue"
+import { useDeckMap } from "../map/useDeckMap"
 
 const mapContainer = ref<HTMLDivElement>()
 useDeckMap(mapContainer)

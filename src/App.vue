@@ -1,57 +1,109 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import DeckMap from './components/DeckMap.vue'
+import { computed, ref } from "vue"
+import DeckMap from "./components/DeckMap.vue"
 
-type LeftPanelId = 'overview' | 'distribution'
-type RightPanelId = 'alerts' | 'resources'
+type LeftPanelId = "overview" | "distribution"
+type RightPanelId = "alerts" | "resources"
 
 const activeLeftPanel = ref<LeftPanelId | null>(null)
 const activeRightPanel = ref<RightPanelId | null>(null)
+const expandedLeftMenu = ref<LeftPanelId | null>(null)
+const expandedRightMenu = ref<RightPanelId | null>(null)
 
 const leftActions = [
-  { id: 'overview', label: '态势总览', icon: 'bi-speedometer2' },
-  { id: 'distribution', label: '区域分布', icon: 'bi-bar-chart-line' },
+  { id: "overview", label: "态势总览", icon: "bi-speedometer2" },
+  { id: "distribution", label: "区域分布", icon: "bi-bar-chart-line" },
 ] satisfies Array<{ id: LeftPanelId; label: string; icon: string }>
 
 const rightActions = [
-  { id: 'alerts', label: '实时告警', icon: 'bi-bell' },
-  { id: 'resources', label: '资源负载', icon: 'bi-cpu' },
+  { id: "alerts", label: "实时告警", icon: "bi-bell" },
+  { id: "resources", label: "资源负载", icon: "bi-cpu" },
 ] satisfies Array<{ id: RightPanelId; label: string; icon: string }>
 
+const expandedLeftAction = computed(
+  () => leftActions.find((action) => action.id === expandedLeftMenu.value) ?? null,
+)
+
+const expandedRightAction = computed(
+  () => rightActions.find((action) => action.id === expandedRightMenu.value) ?? null,
+)
+
 function toggleLeftPanel(panel: LeftPanelId) {
-  activeLeftPanel.value = activeLeftPanel.value === panel ? null : panel
+  if (activeLeftPanel.value === panel) {
+    closeLeftPanel()
+    return
+  }
+
+  if (expandedLeftMenu.value === panel) {
+    openLeftPanel(panel)
+    return
+  }
+
+  expandedLeftMenu.value = panel
+  activeLeftPanel.value = null
 }
 
 function toggleRightPanel(panel: RightPanelId) {
-  activeRightPanel.value = activeRightPanel.value === panel ? null : panel
+  if (activeRightPanel.value === panel) {
+    closeRightPanel()
+    return
+  }
+
+  if (expandedRightMenu.value === panel) {
+    openRightPanel(panel)
+    return
+  }
+
+  expandedRightMenu.value = panel
+  activeRightPanel.value = null
+}
+
+function openLeftPanel(panel: LeftPanelId) {
+  expandedLeftMenu.value = null
+  activeLeftPanel.value = panel
+}
+
+function openRightPanel(panel: RightPanelId) {
+  expandedRightMenu.value = null
+  activeRightPanel.value = panel
+}
+
+function closeLeftPanel() {
+  expandedLeftMenu.value = null
+  activeLeftPanel.value = null
+}
+
+function closeRightPanel() {
+  expandedRightMenu.value = null
+  activeRightPanel.value = null
 }
 
 const overviewMetrics = [
-  { label: '监测目标', value: '1,286', trend: '+24' },
-  { label: '在线设备', value: '1,092', trend: '96.4%' },
-  { label: '今日事件', value: '38', trend: '-6' },
-  { label: '覆盖区域', value: '36', trend: '省份' },
+  { label: "监测目标", value: "1,286", trend: "+24" },
+  { label: "在线设备", value: "1,092", trend: "96.4%" },
+  { label: "今日事件", value: "38", trend: "-6" },
+  { label: "覆盖区域", value: "36", trend: "省份" },
 ]
 
 const areaDistribution = [
-  { name: '华东区域', value: 86 },
-  { name: '华南区域', value: 72 },
-  { name: '华北区域', value: 64 },
-  { name: '西南区域', value: 48 },
-  { name: '东北区域', value: 35 },
+  { name: "华东区域", value: 86 },
+  { name: "华南区域", value: 72 },
+  { name: "华北区域", value: 64 },
+  { name: "西南区域", value: 48 },
+  { name: "东北区域", value: 35 },
 ]
 
 const alerts = [
-  { level: 'critical', title: '边界区域越限', location: 'A-07 监测网格' },
-  { level: 'warning', title: '设备信号波动', location: 'B-15 前置站点' },
-  { level: 'info', title: '图层加载完成', location: '基础影像服务' },
-  { level: 'warning', title: '资源负载升高', location: '渲染节点 03' },
+  { level: "critical", title: "边界区域越限", location: "A-07 监测网格" },
+  { level: "warning", title: "设备信号波动", location: "B-15 前置站点" },
+  { level: "info", title: "图层加载完成", location: "基础影像服务" },
+  { level: "warning", title: "资源负载升高", location: "渲染节点 03" },
 ]
 
 const resourceLoads = [
-  { name: '渲染节点', value: 68, state: '正常' },
-  { name: '影像服务', value: 46, state: '稳定' },
-  { name: '数据链路', value: 81, state: '繁忙' },
+  { name: "渲染节点", value: 68, state: "正常" },
+  { name: "影像服务", value: 46, state: "稳定" },
+  { name: "数据链路", value: 81, state: "繁忙" },
 ]
 </script>
 
@@ -82,16 +134,43 @@ const resourceLoads = [
               v-for="action in leftActions"
               :key="action.id"
               class="rail-button"
-              :class="{ 'is-active': activeLeftPanel === action.id }"
+              :class="{
+                'is-active': expandedLeftMenu === action.id || activeLeftPanel === action.id,
+              }"
               type="button"
-              :aria-expanded="activeLeftPanel === action.id"
-              :aria-controls="`left-${action.id}-panel`"
+              :aria-expanded="expandedLeftMenu === action.id || activeLeftPanel === action.id"
+              :aria-controls="
+                expandedLeftMenu === action.id ? 'left-secondary-menu' : `left-${action.id}-panel`
+              "
               :data-tip="action.label"
               @click="toggleLeftPanel(action.id)"
             >
               <i class="bi" :class="action.icon" aria-hidden="true"></i>
             </button>
           </div>
+
+          <section
+            v-if="expandedLeftAction && activeLeftPanel === null"
+            id="left-secondary-menu"
+            class="floating-panel rail-panel panel-left rail-submenu"
+            role="region"
+            :aria-label="`${expandedLeftAction.label}二级菜单`"
+            @keydown.escape="expandedLeftMenu = null"
+          >
+            <div class="submenu-head">
+              <span>SECONDARY</span>
+              <strong>{{ expandedLeftAction.label }}</strong>
+            </div>
+            <button
+              class="submenu-option"
+              type="button"
+              @click="openLeftPanel(expandedLeftAction.id)"
+            >
+              <i class="bi" :class="expandedLeftAction.icon" aria-hidden="true"></i>
+              <span>{{ expandedLeftAction.label }}</span>
+              <i class="bi bi-chevron-right submenu-chevron" aria-hidden="true"></i>
+            </button>
+          </section>
 
           <section
             v-if="activeLeftPanel === 'overview'"
@@ -110,7 +189,7 @@ const resourceLoads = [
                 class="panel-close"
                 type="button"
                 aria-label="关闭态势总览"
-                @click="activeLeftPanel = null"
+                @click="closeLeftPanel"
               >
                 <i class="bi bi-x-lg" aria-hidden="true"></i>
               </button>
@@ -130,7 +209,7 @@ const resourceLoads = [
             class="floating-panel rail-panel panel-left"
             role="region"
             aria-label="区域分布"
-            @keydown.escape="activeLeftPanel = null"
+            @keydown.escape="closeLeftPanel"
           >
             <div class="panel-head">
               <div class="panel-heading">
@@ -141,7 +220,7 @@ const resourceLoads = [
                 class="panel-close"
                 type="button"
                 aria-label="关闭区域分布"
-                @click="activeLeftPanel = null"
+                @click="closeLeftPanel"
               >
                 <i class="bi bi-x-lg" aria-hidden="true"></i>
               </button>
@@ -169,16 +248,45 @@ const resourceLoads = [
               v-for="action in rightActions"
               :key="action.id"
               class="rail-button"
-              :class="{ 'is-active': activeRightPanel === action.id }"
+              :class="{
+                'is-active': expandedRightMenu === action.id || activeRightPanel === action.id,
+              }"
               type="button"
-              :aria-expanded="activeRightPanel === action.id"
-              :aria-controls="`right-${action.id}-panel`"
+              :aria-expanded="expandedRightMenu === action.id || activeRightPanel === action.id"
+              :aria-controls="
+                expandedRightMenu === action.id
+                  ? 'right-secondary-menu'
+                  : `right-${action.id}-panel`
+              "
               :data-tip="action.label"
               @click="toggleRightPanel(action.id)"
             >
               <i class="bi" :class="action.icon" aria-hidden="true"></i>
             </button>
           </div>
+
+          <section
+            v-if="expandedRightAction && activeRightPanel === null"
+            id="right-secondary-menu"
+            class="floating-panel rail-panel panel-right rail-submenu"
+            role="region"
+            :aria-label="`${expandedRightAction.label}二级菜单`"
+            @keydown.escape="expandedRightMenu = null"
+          >
+            <div class="submenu-head">
+              <span>SECONDARY</span>
+              <strong>{{ expandedRightAction.label }}</strong>
+            </div>
+            <button
+              class="submenu-option"
+              type="button"
+              @click="openRightPanel(expandedRightAction.id)"
+            >
+              <i class="bi" :class="expandedRightAction.icon" aria-hidden="true"></i>
+              <span>{{ expandedRightAction.label }}</span>
+              <i class="bi bi-chevron-right submenu-chevron" aria-hidden="true"></i>
+            </button>
+          </section>
 
           <section
             v-if="activeRightPanel === 'alerts'"
@@ -197,7 +305,7 @@ const resourceLoads = [
                 class="panel-close"
                 type="button"
                 aria-label="关闭实时告警"
-                @click="activeRightPanel = null"
+                @click="closeRightPanel"
               >
                 <i class="bi bi-x-lg" aria-hidden="true"></i>
               </button>
@@ -219,7 +327,7 @@ const resourceLoads = [
             class="floating-panel rail-panel panel-right"
             role="region"
             aria-label="资源负载"
-            @keydown.escape="activeRightPanel = null"
+            @keydown.escape="closeRightPanel"
           >
             <div class="panel-head">
               <div class="panel-heading">
@@ -230,7 +338,7 @@ const resourceLoads = [
                 class="panel-close"
                 type="button"
                 aria-label="关闭资源负载"
-                @click="activeRightPanel = null"
+                @click="closeRightPanel"
               >
                 <i class="bi bi-x-lg" aria-hidden="true"></i>
               </button>
@@ -267,7 +375,7 @@ const resourceLoads = [
 </template>
 
 <style>
-@import 'tailwindcss';
+@import "tailwindcss";
 
 @theme {
   --color-abyss: #030913;
@@ -282,8 +390,7 @@ const resourceLoads = [
   --color-accent-amber: #ffb648;
   --color-accent-rose: #ff5f78;
 
-  --font-interface:
-    Inter, 'HarmonyOS Sans SC', 'Microsoft YaHei', system-ui, sans-serif;
+  --font-interface: Inter, "HarmonyOS Sans SC", "Microsoft YaHei", system-ui, sans-serif;
   --font-data: ui-monospace, Consolas, monospace;
 }
 
@@ -359,7 +466,6 @@ body,
   min-width: 0;
   min-height: 0;
   display: flex;
-  margin: 14px var(--edge-gutter);
   pointer-events: none;
 }
 
@@ -448,20 +554,26 @@ body,
   height: 6px;
   border-radius: 50%;
   background: currentColor;
-  content: '';
+  content: "";
 }
 
 .content-grid {
+  --rail-map-gap: 18px;
+
   flex: 1;
+  position: relative;
   display: grid;
-  grid-template-columns: 56px minmax(0, 1fr) 56px;
-  gap: 14px;
+  grid-template-columns: minmax(0, 1fr);
   min-height: 0;
   align-items: stretch;
 }
 
 .side-rail {
-  position: relative;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 44px;
+  margin: var(--rail-map-gap);
   z-index: 1;
   pointer-events: auto;
   min-width: 0;
@@ -469,13 +581,11 @@ body,
 }
 
 .rail-left {
-  grid-column: 1;
-  grid-row: 1;
+  left: 0;
 }
 
 .rail-right {
-  grid-column: 3;
-  grid-row: 1;
+  right: 0;
 }
 
 .rail-actions {
@@ -484,8 +594,8 @@ body,
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
-  padding: 4px 0;
+  gap: 20px;
+  padding: 0;
 }
 
 .rail-button {
@@ -542,11 +652,11 @@ body,
 }
 
 .rail-left .rail-button::after {
-  left: calc(100% + 10px);
+  left: calc(100% + var(--rail-map-gap));
 }
 
 .rail-right .rail-button::after {
-  right: calc(100% + 10px);
+  right: calc(100% + var(--rail-map-gap));
 }
 
 .rail-button:hover::after,
@@ -566,7 +676,7 @@ body,
   position: absolute;
   top: 0;
   z-index: 3;
-  width: min(302px, calc(100vw - 168px));
+  width: min(302px, calc(100vw - 88px - 4 * var(--rail-map-gap)));
   max-height: 100%;
   overflow-y: auto;
   scrollbar-width: thin;
@@ -583,11 +693,11 @@ body,
 }
 
 .panel-left {
-  left: calc(100% + 12px);
+  left: calc(100% + var(--rail-map-gap));
 }
 
 .panel-right {
-  right: calc(100% + 12px);
+  right: calc(100% + var(--rail-map-gap));
 }
 
 .panel-head {
@@ -649,6 +759,82 @@ body,
 
 .panel-tag.is-alert {
   color: var(--rose);
+}
+
+.rail-submenu {
+  padding: 13px;
+}
+
+.submenu-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--panel-inner-line);
+}
+
+.submenu-head span {
+  color: var(--text-muted);
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 10px;
+  line-height: 1;
+}
+
+.submenu-head strong {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.submenu-option {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  width: 100%;
+  min-height: 42px;
+  margin-top: 12px;
+  padding: 9px 10px;
+  border: 1px solid rgba(79, 151, 255, 0.24);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  background: rgba(19, 40, 72, 0.38);
+  text-align: left;
+  transition:
+    color 160ms ease,
+    border-color 160ms ease,
+    background-color 160ms ease;
+}
+
+.submenu-option > span {
+  overflow: hidden;
+  padding: 0 9px;
+  font-size: 13px;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.submenu-option > .bi:first-child,
+.submenu-chevron {
+  font-size: 15px;
+  line-height: 1;
+}
+
+.submenu-option:hover,
+.submenu-option:focus-visible {
+  border-color: rgba(72, 229, 255, 0.68);
+  color: var(--text-primary);
+  background: rgba(16, 47, 83, 0.82);
+}
+
+.submenu-option:focus-visible {
+  outline: 2px solid rgba(72, 229, 255, 0.42);
+  outline-offset: 2px;
 }
 
 .metric-grid {
@@ -742,7 +928,7 @@ body,
 
 .map-stage {
   position: relative;
-  grid-column: 1 / -1;
+  grid-column: 1;
   grid-row: 1;
   min-width: 0;
   min-height: 0;
@@ -884,10 +1070,9 @@ body,
   white-space: nowrap;
 }
 
-
 @media (max-width: 1439px) {
   .rail-panel {
-    width: min(286px, calc(100vw - 156px));
+    width: min(286px, calc(100vw - 88px - 4 * var(--rail-map-gap)));
   }
 }
 
@@ -899,7 +1084,6 @@ body,
   }
 
   .dashboard-body {
-    padding: 10px var(--edge-gutter);
     overflow: hidden;
   }
 
@@ -932,6 +1116,10 @@ body,
   }
 
   .side-rail {
+    position: relative;
+    inset: auto;
+    width: auto;
+    margin: 0;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -976,7 +1164,6 @@ body,
   .status-group {
     gap: 10px;
   }
-
 }
 
 @media (max-width: 640px) {
