@@ -1,20 +1,11 @@
 <script setup lang="ts">
 import { computed, ref } from "vue"
-import CesiumMap from "./components/CesiumMap.vue"
+import MapViewport from "./components/MapViewport.vue"
 import FloatingWindow from "./components/FloatingWindow.vue"
-import {
-  returnToGuangxi,
-  setTerrainExaggerationScale,
-  toggleCompass,
-  toggleNorthLock,
-  toggleRotateBrowse,
-  toggleSceneMode,
-  toggleTerrainExaggeration,
-} from "./map/mapOperations"
+import { provideMapController, type SceneMode } from "./map"
 
 type LeftPanelId = "overview" | "distribution" | "map"
 type RightPanelId = "alerts" | "resources"
-type SceneMode = "2d" | "3d"
 type MapOperationId =
   | "return-guangxi"
   | "scene-mode"
@@ -33,6 +24,7 @@ const northLocked = ref(false)
 const terrainEnabled = ref(false)
 const compassVisible = ref(false)
 const terrainScale = ref(1)
+const mapController = provideMapController()
 
 const leftActions = [
   { id: "overview", label: "态势总览", icon: "bi-speedometer2" },
@@ -139,18 +131,18 @@ function activateMapOperation(operationId: MapOperationId) {
   if (isMapOperationDisabled(operationId)) return
 
   if (operationId === "return-guangxi") {
-    returnToGuangxi()
+    mapController.returnToGuangxi()
     return
   }
 
   if (operationId === "scene-mode") {
     const nextMode: SceneMode = sceneMode.value === "3d" ? "2d" : "3d"
     sceneMode.value = nextMode
-    toggleSceneMode(nextMode)
+    mapController.setSceneMode(nextMode)
 
     if (nextMode === "2d" && rotateEnabled.value) {
       rotateEnabled.value = false
-      toggleRotateBrowse(false)
+      mapController.setRotateBrowse(false)
     }
 
     return
@@ -158,13 +150,13 @@ function activateMapOperation(operationId: MapOperationId) {
 
   if (operationId === "rotate-browse") {
     rotateEnabled.value = !rotateEnabled.value
-    toggleRotateBrowse(rotateEnabled.value)
+    mapController.setRotateBrowse(rotateEnabled.value)
     return
   }
 
   if (operationId === "north-lock") {
     northLocked.value = !northLocked.value
-    toggleNorthLock(northLocked.value)
+    mapController.setNorthLock(northLocked.value)
     return
   }
 
@@ -172,14 +164,13 @@ function activateMapOperation(operationId: MapOperationId) {
     if (terrainEnabled.value) return
 
     terrainEnabled.value = true
-    toggleTerrainExaggeration(true)
-    setTerrainExaggerationScale(terrainScale.value)
+    mapController.setTerrainExaggeration(true, terrainScale.value)
 
     return
   }
 
   compassVisible.value = !compassVisible.value
-  toggleCompass(compassVisible.value)
+  mapController.setCompassVisible(compassVisible.value)
 }
 
 function handleTerrainScaleInput(event: Event) {
@@ -192,12 +183,12 @@ function handleTerrainScaleInput(event: Event) {
   if (Number.isNaN(nextScale)) return
 
   terrainScale.value = nextScale
-  setTerrainExaggerationScale(nextScale)
+  mapController.setTerrainExaggerationScale(nextScale)
 }
 
 function closeTerrainPanel() {
   terrainEnabled.value = false
-  toggleTerrainExaggeration(false)
+  mapController.setTerrainExaggeration(false, terrainScale.value)
 }
 
 const overviewMetrics = [
@@ -375,7 +366,7 @@ const resourceLoads = [
         </aside>
 
         <div class="map-stage">
-          <CesiumMap />
+          <MapViewport />
           <span class="stage-label" aria-hidden="true">
             {{ sceneMode === "3d" ? "三维态势视图" : "二维态势视图" }}
           </span>
