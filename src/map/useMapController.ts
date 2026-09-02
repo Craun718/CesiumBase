@@ -1,12 +1,10 @@
 import { inject, provide, type InjectionKey } from "vue"
 import { MapController } from "./mapController"
-import { createCesiumMapEngine } from "./engineProvider"
-import type { MapEngineFactory } from "./types"
 
 export const mapControllerKey: InjectionKey<MapController> = Symbol("MapController")
 
-export function provideMapController(createEngine: MapEngineFactory = createCesiumMapEngine) {
-  const controller = new MapController(createEngine)
+export function provideMapController() {
+  const controller = new MapController()
 
   provide(mapControllerKey, controller)
 
