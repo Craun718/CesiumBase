@@ -1,0 +1,8 @@
+{
+  "name": "@cesium-base/map-engine-cesium",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "cesium": "^1.144.0"
+  }
+}
