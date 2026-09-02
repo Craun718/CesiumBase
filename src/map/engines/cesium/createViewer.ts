@@ -41,7 +41,9 @@ function createBaseImageryLayers(): Cesium.ImageryLayer[] {
   ]
 }
 
-export function createViewer(container: HTMLElement) {
+export async function createViewer(container: HTMLElement) {
+  await Cesium.GroundPrimitive.initializeTerrainHeights()
+
   const baseLayers = createBaseImageryLayers()
   const baseLayer = baseLayers[0]
 
