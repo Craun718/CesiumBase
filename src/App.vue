@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue"
 import CesiumMap from "./components/CesiumMap.vue"
+import FloatingWindow from "./components/FloatingWindow.vue"
 import {
   returnToGuangxi,
   setTerrainExaggerationScale,
@@ -270,18 +271,16 @@ const resourceLoads = [
             </button>
           </div>
 
-          <section
+          <FloatingWindow
             v-if="expandedLeftMenu === 'map' && activeLeftPanel === null"
             id="left-map-secondary-menu"
-            class="floating-panel rail-panel panel-left rail-submenu map-submenu"
-            role="region"
-            aria-label="地图操作二级菜单"
-            @keydown.escape="expandedLeftMenu = null"
+            class="rail-panel panel-left rail-submenu map-submenu"
+            title="地图操作"
+            tag="MAP CONTROL"
+            variant="submenu"
+            close-label="关闭地图操作二级菜单"
+            @close="expandedLeftMenu = null"
           >
-            <div class="submenu-head">
-              <span>MAP CONTROL</span>
-              <strong>地图操作</strong>
-            </div>
             <div class="map-operation-list">
               <button
                 v-for="operation in mapOperations"
@@ -314,20 +313,17 @@ const resourceLoads = [
                 </span>
               </button>
             </div>
-          </section>
+          </FloatingWindow>
 
-          <section
+          <FloatingWindow
             v-else-if="expandedLeftAction && activeLeftPanel === null"
             id="left-secondary-menu"
-            class="floating-panel rail-panel panel-left rail-submenu"
-            role="region"
-            :aria-label="`${expandedLeftAction.label}二级菜单`"
-            @keydown.escape="expandedLeftMenu = null"
+            class="rail-panel panel-left rail-submenu"
+            :title="expandedLeftAction.label"
+            variant="submenu"
+            :close-label="`关闭${expandedLeftAction.label}二级菜单`"
+            @close="expandedLeftMenu = null"
           >
-            <div class="submenu-head">
-              <span>SECONDARY</span>
-              <strong>{{ expandedLeftAction.label }}</strong>
-            </div>
             <button
               class="submenu-option"
               type="button"
@@ -337,30 +333,17 @@ const resourceLoads = [
               <span>{{ expandedLeftAction.label }}</span>
               <i class="bi bi-chevron-right submenu-chevron" aria-hidden="true"></i>
             </button>
-          </section>
+          </FloatingWindow>
 
-          <section
+          <FloatingWindow
             v-if="activeLeftPanel === 'overview'"
             id="left-overview-panel"
-            class="floating-panel rail-panel panel-left"
-            role="region"
-            aria-label="态势总览"
-            @keydown.escape="activeLeftPanel = null"
+            class="rail-panel panel-left"
+            title="态势总览"
+            tag="TOTAL"
+            close-label="关闭态势总览"
+            @close="closeLeftPanel"
           >
-            <div class="panel-head">
-              <div class="panel-heading">
-                <h2>态势总览</h2>
-                <span class="panel-tag">TOTAL</span>
-              </div>
-              <button
-                class="panel-close"
-                type="button"
-                aria-label="关闭态势总览"
-                @click="closeLeftPanel"
-              >
-                <i class="bi bi-x-lg" aria-hidden="true"></i>
-              </button>
-            </div>
             <div class="metric-grid">
               <article v-for="metric in overviewMetrics" :key="metric.label">
                 <span>{{ metric.label }}</span>
@@ -368,30 +351,17 @@ const resourceLoads = [
                 <small>{{ metric.trend }}</small>
               </article>
             </div>
-          </section>
+          </FloatingWindow>
 
-          <section
+          <FloatingWindow
             v-if="activeLeftPanel === 'distribution'"
             id="left-distribution-panel"
-            class="floating-panel rail-panel panel-left"
-            role="region"
-            aria-label="区域分布"
-            @keydown.escape="closeLeftPanel"
+            class="rail-panel panel-left"
+            title="区域分布"
+            tag="REGION"
+            close-label="关闭区域分布"
+            @close="closeLeftPanel"
           >
-            <div class="panel-head">
-              <div class="panel-heading">
-                <h2>区域分布</h2>
-                <span class="panel-tag">REGION</span>
-              </div>
-              <button
-                class="panel-close"
-                type="button"
-                aria-label="关闭区域分布"
-                @click="closeLeftPanel"
-              >
-                <i class="bi bi-x-lg" aria-hidden="true"></i>
-              </button>
-            </div>
             <div class="distribution-list">
               <div v-for="area in areaDistribution" :key="area.name" class="distribution-row">
                 <span>{{ area.name }}</span>
@@ -401,7 +371,7 @@ const resourceLoads = [
                 <strong>{{ area.value }}</strong>
               </div>
             </div>
-          </section>
+          </FloatingWindow>
         </aside>
 
         <div class="map-stage">
@@ -411,28 +381,15 @@ const resourceLoads = [
           </span>
         </div>
 
-        <section
+        <FloatingWindow
           v-if="terrainEnabled"
           id="terrain-scale-window"
-          class="floating-panel terrain-scale-window"
-          role="region"
-          aria-label="地形起伏倍率"
-          @keydown.escape="closeTerrainPanel"
+          class="terrain-scale-window"
+          title="地形起伏倍率"
+          tag="TERRAIN"
+          close-label="关闭地形突出"
+          @close="closeTerrainPanel"
         >
-          <div class="panel-head">
-            <div class="panel-heading">
-              <h2>地形起伏倍率</h2>
-              <span class="panel-tag">TERRAIN</span>
-            </div>
-            <button
-              class="panel-close terrain-close"
-              type="button"
-              aria-label="关闭地形突出"
-              @click="closeTerrainPanel"
-            >
-              <i class="bi bi-x-lg" aria-hidden="true"></i>
-            </button>
-          </div>
           <div class="terrain-scale-body">
             <strong>{{ terrainScale.toFixed(1) }}x</strong>
             <input
@@ -446,7 +403,7 @@ const resourceLoads = [
               @input="handleTerrainScaleInput"
             />
           </div>
-        </section>
+        </FloatingWindow>
 
         <aside class="side-rail rail-right" aria-label="右侧操作">
           <div class="rail-actions">
@@ -471,18 +428,15 @@ const resourceLoads = [
             </button>
           </div>
 
-          <section
+          <FloatingWindow
             v-if="expandedRightAction && activeRightPanel === null"
             id="right-secondary-menu"
-            class="floating-panel rail-panel panel-right rail-submenu"
-            role="region"
-            :aria-label="`${expandedRightAction.label}二级菜单`"
-            @keydown.escape="expandedRightMenu = null"
+            class="rail-panel panel-right rail-submenu"
+            :title="expandedRightAction.label"
+            variant="submenu"
+            :close-label="`关闭${expandedRightAction.label}二级菜单`"
+            @close="expandedRightMenu = null"
           >
-            <div class="submenu-head">
-              <span>SECONDARY</span>
-              <strong>{{ expandedRightAction.label }}</strong>
-            </div>
             <button
               class="submenu-option"
               type="button"
@@ -492,30 +446,18 @@ const resourceLoads = [
               <span>{{ expandedRightAction.label }}</span>
               <i class="bi bi-chevron-right submenu-chevron" aria-hidden="true"></i>
             </button>
-          </section>
+          </FloatingWindow>
 
-          <section
+          <FloatingWindow
             v-if="activeRightPanel === 'alerts'"
             id="right-alerts-panel"
-            class="floating-panel rail-panel panel-right"
-            role="region"
-            aria-label="实时告警"
-            @keydown.escape="activeRightPanel = null"
+            class="rail-panel panel-right"
+            title="实时告警"
+            tag="ALERT"
+            tag-tone="alert"
+            close-label="关闭实时告警"
+            @close="closeRightPanel"
           >
-            <div class="panel-head">
-              <div class="panel-heading">
-                <h2>实时告警</h2>
-                <span class="panel-tag is-alert">ALERT</span>
-              </div>
-              <button
-                class="panel-close"
-                type="button"
-                aria-label="关闭实时告警"
-                @click="closeRightPanel"
-              >
-                <i class="bi bi-x-lg" aria-hidden="true"></i>
-              </button>
-            </div>
             <ul class="alert-list">
               <li v-for="alert in alerts" :key="alert.title" :class="alert.level">
                 <span class="alert-dot" aria-hidden="true"></span>
@@ -525,30 +467,17 @@ const resourceLoads = [
                 </div>
               </li>
             </ul>
-          </section>
+          </FloatingWindow>
 
-          <section
+          <FloatingWindow
             v-if="activeRightPanel === 'resources'"
             id="right-resources-panel"
-            class="floating-panel rail-panel panel-right"
-            role="region"
-            aria-label="资源负载"
-            @keydown.escape="closeRightPanel"
+            class="rail-panel panel-right"
+            title="资源负载"
+            tag="LOAD"
+            close-label="关闭资源负载"
+            @close="closeRightPanel"
           >
-            <div class="panel-head">
-              <div class="panel-heading">
-                <h2>资源负载</h2>
-                <span class="panel-tag">LOAD</span>
-              </div>
-              <button
-                class="panel-close"
-                type="button"
-                aria-label="关闭资源负载"
-                @click="closeRightPanel"
-              >
-                <i class="bi bi-x-lg" aria-hidden="true"></i>
-              </button>
-            </div>
             <div class="resource-list">
               <div v-for="resource in resourceLoads" :key="resource.name">
                 <div class="resource-row">
@@ -561,7 +490,7 @@ const resourceLoads = [
                 <small>{{ resource.state }}</small>
               </div>
             </div>
-          </section>
+          </FloatingWindow>
         </aside>
       </div>
     </main>
@@ -673,13 +602,6 @@ body,
   min-height: 0;
   display: flex;
   pointer-events: none;
-}
-
-.floating-panel {
-  border: 1px solid var(--panel-border);
-  background: var(--panel-bg);
-  box-shadow: var(--panel-shadow);
-  backdrop-filter: blur(12px);
 }
 
 .topbar {
@@ -871,14 +793,6 @@ body,
   opacity: 1;
 }
 
-.floating-panel {
-  position: relative;
-  min-width: 0;
-  padding: 15px;
-  overflow: hidden;
-  border-radius: 6px;
-}
-
 .rail-panel {
   position: absolute;
   top: 0;
@@ -905,97 +819,6 @@ body,
 
 .panel-right {
   right: calc(100% + var(--rail-map-gap));
-}
-
-.panel-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding-bottom: 11px;
-  border-bottom: 1px solid var(--panel-inner-line);
-}
-
-.panel-head h2 {
-  margin: 0;
-  color: var(--text-primary);
-  font-size: 15px;
-  font-weight: 650;
-  line-height: 1.25;
-}
-
-.panel-heading {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.panel-close {
-  display: grid;
-  flex: 0 0 auto;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  border: 1px solid transparent;
-  border-radius: 3px;
-  color: var(--text-muted);
-  background: transparent;
-}
-
-.panel-close:hover,
-.panel-close:focus-visible {
-  border-color: var(--panel-border);
-  color: var(--text-primary);
-  background: rgba(31, 62, 104, 0.5);
-}
-
-.panel-close:focus-visible {
-  outline: 2px solid rgba(72, 229, 255, 0.42);
-  outline-offset: 2px;
-}
-
-.panel-tag {
-  color: var(--text-muted);
-  font-family: ui-monospace, Consolas, monospace;
-  font-size: 10px;
-  line-height: 1;
-}
-
-.panel-tag.is-alert {
-  color: var(--rose);
-}
-
-.rail-submenu {
-  padding: 13px;
-}
-
-.submenu-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid var(--panel-inner-line);
-}
-
-.submenu-head span {
-  color: var(--text-muted);
-  font-family: ui-monospace, Consolas, monospace;
-  font-size: 10px;
-  line-height: 1;
-}
-
-.submenu-head strong {
-  overflow: hidden;
-  color: var(--text-primary);
-  font-size: 14px;
-  font-weight: 650;
-  line-height: 1.25;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .submenu-option {
@@ -1130,26 +953,19 @@ body,
 }
 
 .terrain-scale-window {
+  --window-padding: 10px;
+  --window-head-padding: 8px;
+  --window-title-size: 13px;
+  --window-tag-size: 9px;
+  --window-close-size: 20px;
+
   position: absolute;
   top: var(--rail-map-gap);
   left: calc(44px + 3 * var(--rail-map-gap) + var(--map-menu-width));
   z-index: 2;
   width: min(220px, calc(100vw - 160px));
   min-width: 0;
-  padding: 10px;
   pointer-events: auto;
-}
-
-.terrain-scale-window .panel-head {
-  padding-bottom: 8px;
-}
-
-.terrain-scale-window .panel-head h2 {
-  font-size: 13px;
-}
-
-.terrain-scale-window .panel-tag {
-  font-size: 9px;
 }
 
 .terrain-scale-body {
@@ -1171,11 +987,6 @@ body,
   height: 16px;
   margin: 0;
   accent-color: var(--cyan);
-}
-
-.terrain-close {
-  width: 20px;
-  height: 20px;
 }
 
 .metric-grid {
