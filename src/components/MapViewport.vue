@@ -19,9 +19,9 @@ withDefaults(
   },
 )
 
-onMounted(() => {
+onMounted(async () => {
   if (mapContainer.value) {
-    mapController?.mount(mapContainer.value)
+    await mapController.mount(mapContainer.value)
   }
 
   disposeCameraHeadingChange = mapController.onCameraHeadingChange((heading) => {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref } from "vue"
+import { computed, onBeforeUnmount, ref, watch } from "vue"
 
 const props = withDefaults(
   defineProps<{
@@ -27,8 +27,15 @@ const normalizedHeading = computed(() => {
 
   return ((props.heading % 360) + 360) % 360
 })
+const continuousHeading = ref(normalizedHeading.value)
 
-const compassRotation = computed(() => -normalizedHeading.value)
+watch(normalizedHeading, (heading) => {
+  const delta = ((((heading - continuousHeading.value + 180) % 360) + 360) % 360) - 180
+
+  continuousHeading.value += delta
+})
+
+const compassRotation = computed(() => -continuousHeading.value)
 const headingLabel = computed(
   () => `${Math.round(normalizedHeading.value).toString().padStart(3, "0")}°`,
 )

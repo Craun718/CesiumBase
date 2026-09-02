@@ -1,5 +1,7 @@
 export type SceneMode = "2d" | "3d"
 
+export type MapEngineId = "cesium" | "deck-gl"
+
 export type MapBounds = {
   west: number
   south: number
@@ -24,3 +26,5 @@ export interface MapEngine {
 }
 
 export type MapEngineFactory = () => MapEngine
+
+export type MapEngineLoader = () => Promise<MapEngineFactory>
