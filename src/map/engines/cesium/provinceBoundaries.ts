@@ -10,11 +10,9 @@ import {
   type ProvinceGeometry,
 } from "./geojson"
 
-const provinceBoundaryUrl = "/vector/中国_省.geojson"
+const provinceBoundaryUrl = "/vector/广西壮族自治区_自治区.geojson"
 const guangxiProvinceName = "广西壮族自治区"
-const otherProvinceBoundaryZIndex = 1
 const guangxiBoundaryZIndex = 2
-const otherProvinceColor = Cesium.Color.fromCssColorString("#00008b").withAlpha(0.8)
 const guangxiColor = Cesium.Color.fromCssColorString("#eab308")
 const outsideGuangxiColor = Cesium.Color.fromCssColorString("#031b4e").withAlpha(0.65)
 
@@ -32,30 +30,21 @@ export async function addProvinceBoundaries(viewer: Cesium.Viewer) {
       return
     }
 
-    for (const feature of data.features) {
-      if (!isProvinceGeometry(feature.geometry)) {
-        continue
-      }
-
-      const isGuangxi = feature.properties.name === guangxiProvinceName
-      const color = isGuangxi ? guangxiColor : otherProvinceColor
-      const width = isGuangxi ? 4 : 2
-      const zIndex = isGuangxi ? guangxiBoundaryZIndex : otherProvinceBoundaryZIndex
-
-      forEachProvinceRing(feature.geometry, (ring) => {
-        addBoundary(viewer, ring, color, width, zIndex)
-      })
-    }
-
     const guangxiFeature = data.features.find(
       (feature) => feature.properties.name === guangxiProvinceName,
     )
 
-    if (guangxiFeature && isProvinceGeometry(guangxiFeature.geometry)) {
-      addOutsideGuangxiMask(viewer, guangxiFeature.geometry)
+    if (!guangxiFeature || !isProvinceGeometry(guangxiFeature.geometry)) {
+      return
     }
+
+    forEachProvinceRing(guangxiFeature.geometry, (ring) => {
+      addBoundary(viewer, ring, guangxiColor, 4, guangxiBoundaryZIndex)
+    })
+
+    addOutsideGuangxiMask(viewer, guangxiFeature.geometry)
   } catch (error) {
-    console.error("Failed to load province boundaries", error)
+    console.error("Failed to load Guangxi boundary", error)
   }
 }
 
