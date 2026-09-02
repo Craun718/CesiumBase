@@ -489,8 +489,8 @@ const resourceLoads = [
     <footer class="statusbar">
       <div class="status-group">
         <span>{{ sceneMode === "3d" ? "3D MODE" : "2D MODE" }}</span>
-        <span>WGS 84</span>
-        <span>OSM TILE</span>
+        <span>CGCS2000</span>
+        <span>天地图影像</span>
       </div>
       <div class="status-group">
         <span>静态演示页面</span>
