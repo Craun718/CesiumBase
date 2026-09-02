@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from "vue"
+import ErrorBoundary from "./components/ErrorBoundary.vue"
 import MapViewport from "./components/MapViewport.vue"
 import FloatingWindow from "./components/FloatingWindow.vue"
 import { mapEngineId, provideMapController, type SceneMode } from "./map"
@@ -367,7 +368,9 @@ const resourceLoads = [
         </aside>
 
         <div class="map-stage">
-          <MapViewport :compass-visible="compassVisible" :north-locked="northLocked" />
+          <ErrorBoundary>
+            <MapViewport :compass-visible="compassVisible" :north-locked="northLocked" />
+          </ErrorBoundary>
           <span class="stage-label" aria-hidden="true">
             {{ sceneMode === "3d" ? "三维态势视图" : "二维态势视图" }}
           </span>
