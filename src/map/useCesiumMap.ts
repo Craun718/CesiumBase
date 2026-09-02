@@ -118,7 +118,7 @@ function configureScene(viewer: Cesium.Viewer) {
 function setInitialCamera(viewer: Cesium.Viewer) {
   // Bounds derived from the Guangxi city boundary GeoJSON.
   viewer.camera.setView({
-    destination: Cesium.Rectangle.fromDegrees(104.446538, 21.018748, 112.0569, 26.386391),
+    destination: Cesium.Rectangle.fromDegrees(105, 21, 112.0569, 26.5),
   })
 }
 
