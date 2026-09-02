@@ -140,8 +140,8 @@ function handleKeydown(event: KeyboardEvent) {
         :style="{ transform: `rotate(${compassRotation}deg)` }"
         aria-hidden="true"
       >
-        <i class="needle-arrow"></i>
         <small>N</small>
+        <i class="needle-arrow"></i>
       </span>
     </div>
 
