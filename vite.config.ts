@@ -46,7 +46,8 @@ export default defineConfig(({ mode }) => {
                     "./src/map/engines/cesium/node_modules/cesium/Build/Cesium/Widgets/**",
                   ],
                   dest: "cesium",
-                  rename: { stripBase: 4 },
+                  // Strip through .../cesium/Build/Cesium so requests use /cesium/{Workers,Assets,...}.
+                  rename: { stripBase: 8 },
                 },
               ],
             }),
