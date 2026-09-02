@@ -1,7 +1,6 @@
-import { Deck, MapView, TerrainController, type PickingInfo } from "@deck.gl/core"
+import { WebMercatorViewport, type PickingInfo } from "@deck.gl/core"
 import { TerrainLayer } from "@deck.gl/geo-layers"
 import { ArcLayer, GeoJsonLayer, ScatterplotLayer } from "@deck.gl/layers"
-import { onBeforeUnmount, onMounted, type Ref } from "vue"
 
 type StationStatus = "online" | "warning" | "critical"
 
@@ -21,6 +20,11 @@ interface NetworkLink {
 
 interface ProvinceProperties {
   name?: string
+}
+
+export interface TerrainDisplaySettings {
+  exaggerationEnabled: boolean
+  exaggerationScale: number
 }
 
 const provinceBoundaryUrl = "/vector/中国_省.geojson"
@@ -56,122 +60,25 @@ const statusColors: Record<StationStatus, [number, number, number, number]> = {
   critical: [255, 95, 120, 245],
 }
 
-type ControllerEvent = Parameters<TerrainController["handleEvent"]>[0] & {
-  middleButton?: boolean
-  rightButton?: boolean
-  center?: { x: number; y: number }
-}
-
-// Cesium-style interaction: middle drag tilts/rotates, right drag zooms.
-class CesiumStyleTerrainController extends TerrainController {
-  private rightDragLastY: number | null = null
-
-  handleEvent(event: ControllerEvent): boolean {
-    if (event.type === "panstart" && event.middleButton) {
-      return super.handleEvent({ ...event, rightButton: true })
-    }
-
-    if (event.rightButton) {
-      if (event.type === "panstart") {
-        this.rightDragLastY = event.center?.y ?? null
-        return true
-      }
-
-      if (event.type === "panmove" && this.rightDragLastY !== null) {
-        const currentY = event.center?.y
-
-        if (currentY !== undefined) {
-          const deltaY = currentY - this.rightDragLastY
-          this.rightDragLastY = currentY
-
-          // Reuse the wheel-zoom machinery; dragging up zooms in.
-          return super.handleEvent({
-            ...event,
-            type: "wheel",
-            delta: -deltaY * 2,
-          } as ControllerEvent)
-        }
-      }
-
-      if (event.type === "panend") {
-        this.rightDragLastY = null
-        return true
-      }
-    }
-
-    return super.handleEvent(event)
-  }
-}
-
-// Keep markers above the terrain surface to avoid depth fighting.
 const stationAltitude = 1500
 
 function withAltitude(position: [number, number]): [number, number, number] {
   return [position[0], position[1], stationAltitude]
 }
 
-export function useDeckMap(container: Ref<HTMLDivElement | undefined>) {
-  let deck: Deck<MapView> | undefined
-  let containerElement: HTMLDivElement | undefined
+export function createDeckLayers(settings: TerrainDisplaySettings) {
+  const exaggeration = settings.exaggerationEnabled ? Math.max(settings.exaggerationScale, 1) : 1
 
-  const preventContextMenu = (event: Event) => {
-    event.preventDefault()
-  }
-
-  onMounted(() => {
-    if (!container.value) return
-
-    containerElement = container.value
-    containerElement.addEventListener("contextmenu", preventContextMenu)
-    deck = createDeck(containerElement)
-  })
-
-  onBeforeUnmount(() => {
-    containerElement?.removeEventListener("contextmenu", preventContextMenu)
-    containerElement = undefined
-    deck?.finalize()
-    deck = undefined
-  })
-}
-
-function createDeck(container: HTMLDivElement) {
-  return new Deck({
-    parent: container,
-    views: new MapView({
-      controller: {
-        type: CesiumStyleTerrainController,
-        dragRotate: true,
-        touchRotate: true,
-        keyboard: true,
-        inertia: true,
-      },
-    }),
-    initialViewState: {
-      longitude: 108.25,
-      latitude: 23.7,
-      zoom: 6,
-      minZoom: 2.5,
-      maxZoom: 14,
-      pitch: 45,
-      bearing: -24,
-      maxPitch: 70,
-    },
-    getTooltip,
-    layers: createLayers(),
-  })
-}
-
-function createLayers() {
   return [
     new TerrainLayer({
       id: "terrain-base-map",
       elevationData: "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png",
       texture: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
       elevationDecoder: {
-        rScaler: 256,
-        gScaler: 1,
-        bScaler: 1 / 256,
-        offset: -32768,
+        rScaler: 256 * exaggeration,
+        gScaler: exaggeration,
+        bScaler: exaggeration / 256,
+        offset: -32768 * exaggeration,
       },
       meshMaxError: 4,
       minZoom: 0,
@@ -242,7 +149,7 @@ function createLayers() {
   ]
 }
 
-function getTooltip(info: PickingInfo) {
+export function getDeckTooltip(info: PickingInfo) {
   const station = info.object as Station | undefined
 
   if (!station) return null
@@ -254,3 +161,5 @@ function getTooltip(info: PickingInfo) {
     `,
   }
 }
+
+export { WebMercatorViewport }
