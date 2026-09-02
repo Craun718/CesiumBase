@@ -28,7 +28,7 @@ export class MapController {
     if (generation !== this.mountGeneration) return
 
     const engine = createEngine()
-    engine.mount(container)
+    await engine.mount(container)
     this.engine = engine
   }
 
