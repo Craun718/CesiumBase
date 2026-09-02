@@ -1,24 +1,55 @@
 <script setup lang="ts">
 import { computed, ref } from "vue"
-import CesiumMap from "./components/CesiumMap.vue"
+import MapViewport from "./components/MapViewport.vue"
+import FloatingWindow from "./components/FloatingWindow.vue"
+import { provideMapController, type SceneMode } from "./map"
 
-type LeftPanelId = "overview" | "distribution"
+type LeftPanelId = "overview" | "distribution" | "map"
 type RightPanelId = "alerts" | "resources"
+type MapOperationId =
+  | "return-guangxi"
+  | "scene-mode"
+  | "rotate-browse"
+  | "north-lock"
+  | "terrain"
+  | "compass"
 
 const activeLeftPanel = ref<LeftPanelId | null>(null)
 const activeRightPanel = ref<RightPanelId | null>(null)
 const expandedLeftMenu = ref<LeftPanelId | null>(null)
 const expandedRightMenu = ref<RightPanelId | null>(null)
+const sceneMode = ref<SceneMode>("3d")
+const rotateEnabled = ref(false)
+const northLocked = ref(false)
+const terrainEnabled = ref(false)
+const compassVisible = ref(false)
+const terrainScale = ref(1)
+const mapController = provideMapController()
 
 const leftActions = [
   { id: "overview", label: "态势总览", icon: "bi-speedometer2" },
   { id: "distribution", label: "区域分布", icon: "bi-bar-chart-line" },
+  { id: "map", label: "地图操作", icon: "bi-map" },
 ] satisfies Array<{ id: LeftPanelId; label: string; icon: string }>
 
 const rightActions = [
   { id: "alerts", label: "实时告警", icon: "bi-bell" },
   { id: "resources", label: "资源负载", icon: "bi-cpu" },
 ] satisfies Array<{ id: RightPanelId; label: string; icon: string }>
+
+const mapOperations = [
+  { id: "return-guangxi", label: "返回广西", icon: "bi-geo-alt", kind: "command" },
+  { id: "scene-mode", label: "2D/3D切换", icon: "bi-layers", kind: "mode" },
+  { id: "rotate-browse", label: "旋转浏览", icon: "bi-arrow-repeat", kind: "toggle" },
+  { id: "north-lock", label: "正北锁定", icon: "bi-compass", kind: "toggle" },
+  { id: "terrain", label: "地形突出", icon: "bi-mountain", kind: "command" },
+  { id: "compass", label: "显示指北针", icon: "bi-signpost-2", kind: "toggle" },
+] satisfies Array<{
+  id: MapOperationId
+  label: string
+  icon: string
+  kind: "command" | "mode" | "toggle"
+}>
 
 const expandedLeftAction = computed(
   () => leftActions.find((action) => action.id === expandedLeftMenu.value) ?? null,
@@ -29,6 +60,12 @@ const expandedRightAction = computed(
 )
 
 function toggleLeftPanel(panel: LeftPanelId) {
+  if (panel === "map") {
+    expandedLeftMenu.value = expandedLeftMenu.value === panel ? null : panel
+    activeLeftPanel.value = null
+    return
+  }
+
   if (activeLeftPanel.value === panel) {
     closeLeftPanel()
     return
@@ -76,6 +113,82 @@ function closeLeftPanel() {
 function closeRightPanel() {
   expandedRightMenu.value = null
   activeRightPanel.value = null
+}
+
+function isMapOperationDisabled(operationId: MapOperationId) {
+  return operationId === "rotate-browse" && sceneMode.value === "2d"
+}
+
+function isMapOperationActive(operationId: MapOperationId) {
+  if (operationId === "rotate-browse") return rotateEnabled.value
+  if (operationId === "north-lock") return northLocked.value
+  if (operationId === "compass") return compassVisible.value
+
+  return false
+}
+
+function activateMapOperation(operationId: MapOperationId) {
+  if (isMapOperationDisabled(operationId)) return
+
+  if (operationId === "return-guangxi") {
+    mapController.returnToGuangxi()
+    return
+  }
+
+  if (operationId === "scene-mode") {
+    const nextMode: SceneMode = sceneMode.value === "3d" ? "2d" : "3d"
+    sceneMode.value = nextMode
+    mapController.setSceneMode(nextMode)
+
+    if (nextMode === "2d" && rotateEnabled.value) {
+      rotateEnabled.value = false
+      mapController.setRotateBrowse(false)
+    }
+
+    return
+  }
+
+  if (operationId === "rotate-browse") {
+    rotateEnabled.value = !rotateEnabled.value
+    mapController.setRotateBrowse(rotateEnabled.value)
+    return
+  }
+
+  if (operationId === "north-lock") {
+    northLocked.value = !northLocked.value
+    mapController.setNorthLock(northLocked.value)
+    return
+  }
+
+  if (operationId === "terrain") {
+    if (terrainEnabled.value) return
+
+    terrainEnabled.value = true
+    mapController.setTerrainExaggeration(true, terrainScale.value)
+
+    return
+  }
+
+  compassVisible.value = !compassVisible.value
+  mapController.setCompassVisible(compassVisible.value)
+}
+
+function handleTerrainScaleInput(event: Event) {
+  const input = event.target
+
+  if (!(input instanceof HTMLInputElement)) return
+
+  const nextScale = Number(input.value)
+
+  if (Number.isNaN(nextScale)) return
+
+  terrainScale.value = nextScale
+  mapController.setTerrainExaggerationScale(nextScale)
+}
+
+function closeTerrainPanel() {
+  terrainEnabled.value = false
+  mapController.setTerrainExaggeration(false, terrainScale.value)
 }
 
 const overviewMetrics = [
@@ -149,18 +262,59 @@ const resourceLoads = [
             </button>
           </div>
 
-          <section
-            v-if="expandedLeftAction && activeLeftPanel === null"
-            id="left-secondary-menu"
-            class="floating-panel rail-panel panel-left rail-submenu"
-            role="region"
-            :aria-label="`${expandedLeftAction.label}二级菜单`"
-            @keydown.escape="expandedLeftMenu = null"
+          <FloatingWindow
+            v-if="expandedLeftMenu === 'map' && activeLeftPanel === null"
+            id="left-map-secondary-menu"
+            class="rail-panel panel-left rail-submenu map-submenu"
+            title="地图操作"
+            tag="MAP CONTROL"
+            variant="submenu"
+            close-label="关闭地图操作二级菜单"
+            @close="expandedLeftMenu = null"
           >
-            <div class="submenu-head">
-              <span>SECONDARY</span>
-              <strong>{{ expandedLeftAction.label }}</strong>
+            <div class="map-operation-list">
+              <button
+                v-for="operation in mapOperations"
+                :key="operation.id"
+                class="submenu-option map-operation"
+                :class="{
+                  'is-active': operation.kind === 'toggle' && isMapOperationActive(operation.id),
+                  'is-open': operation.id === 'terrain' && terrainEnabled,
+                }"
+                type="button"
+                :disabled="isMapOperationDisabled(operation.id)"
+                :aria-pressed="
+                  operation.kind === 'toggle' ? isMapOperationActive(operation.id) : undefined
+                "
+                :title="isMapOperationDisabled(operation.id) ? '仅3D模式可用' : undefined"
+                @click="activateMapOperation(operation.id)"
+              >
+                <i class="bi" :class="operation.icon" aria-hidden="true"></i>
+                <span>{{ operation.label }}</span>
+                <i
+                  v-if="operation.kind === 'command'"
+                  class="bi bi-chevron-right submenu-chevron"
+                  aria-hidden="true"
+                ></i>
+                <span v-else-if="operation.kind === 'mode'" class="operation-mode">
+                  {{ sceneMode.toUpperCase() }}
+                </span>
+                <span v-else class="operation-switch" aria-hidden="true">
+                  <span class="operation-switch-thumb"></span>
+                </span>
+              </button>
             </div>
+          </FloatingWindow>
+
+          <FloatingWindow
+            v-else-if="expandedLeftAction && activeLeftPanel === null"
+            id="left-secondary-menu"
+            class="rail-panel panel-left rail-submenu"
+            :title="expandedLeftAction.label"
+            variant="submenu"
+            :close-label="`关闭${expandedLeftAction.label}二级菜单`"
+            @close="expandedLeftMenu = null"
+          >
             <button
               class="submenu-option"
               type="button"
@@ -170,30 +324,17 @@ const resourceLoads = [
               <span>{{ expandedLeftAction.label }}</span>
               <i class="bi bi-chevron-right submenu-chevron" aria-hidden="true"></i>
             </button>
-          </section>
+          </FloatingWindow>
 
-          <section
+          <FloatingWindow
             v-if="activeLeftPanel === 'overview'"
             id="left-overview-panel"
-            class="floating-panel rail-panel panel-left"
-            role="region"
-            aria-label="态势总览"
-            @keydown.escape="activeLeftPanel = null"
+            class="rail-panel panel-left"
+            title="态势总览"
+            tag="TOTAL"
+            close-label="关闭态势总览"
+            @close="closeLeftPanel"
           >
-            <div class="panel-head">
-              <div class="panel-heading">
-                <h2>态势总览</h2>
-                <span class="panel-tag">TOTAL</span>
-              </div>
-              <button
-                class="panel-close"
-                type="button"
-                aria-label="关闭态势总览"
-                @click="closeLeftPanel"
-              >
-                <i class="bi bi-x-lg" aria-hidden="true"></i>
-              </button>
-            </div>
             <div class="metric-grid">
               <article v-for="metric in overviewMetrics" :key="metric.label">
                 <span>{{ metric.label }}</span>
@@ -201,30 +342,17 @@ const resourceLoads = [
                 <small>{{ metric.trend }}</small>
               </article>
             </div>
-          </section>
+          </FloatingWindow>
 
-          <section
+          <FloatingWindow
             v-if="activeLeftPanel === 'distribution'"
             id="left-distribution-panel"
-            class="floating-panel rail-panel panel-left"
-            role="region"
-            aria-label="区域分布"
-            @keydown.escape="closeLeftPanel"
+            class="rail-panel panel-left"
+            title="区域分布"
+            tag="REGION"
+            close-label="关闭区域分布"
+            @close="closeLeftPanel"
           >
-            <div class="panel-head">
-              <div class="panel-heading">
-                <h2>区域分布</h2>
-                <span class="panel-tag">REGION</span>
-              </div>
-              <button
-                class="panel-close"
-                type="button"
-                aria-label="关闭区域分布"
-                @click="closeLeftPanel"
-              >
-                <i class="bi bi-x-lg" aria-hidden="true"></i>
-              </button>
-            </div>
             <div class="distribution-list">
               <div v-for="area in areaDistribution" :key="area.name" class="distribution-row">
                 <span>{{ area.name }}</span>
@@ -234,13 +362,39 @@ const resourceLoads = [
                 <strong>{{ area.value }}</strong>
               </div>
             </div>
-          </section>
+          </FloatingWindow>
         </aside>
 
         <div class="map-stage">
-          <CesiumMap />
-          <span class="stage-label" aria-hidden="true">三维态势视图</span>
+          <MapViewport />
+          <span class="stage-label" aria-hidden="true">
+            {{ sceneMode === "3d" ? "三维态势视图" : "二维态势视图" }}
+          </span>
         </div>
+
+        <FloatingWindow
+          v-if="terrainEnabled"
+          id="terrain-scale-window"
+          class="terrain-scale-window"
+          title="地形起伏倍率"
+          tag="TERRAIN"
+          close-label="关闭地形突出"
+          @close="closeTerrainPanel"
+        >
+          <div class="terrain-scale-body">
+            <strong>{{ terrainScale.toFixed(1) }}x</strong>
+            <input
+              class="terrain-slider"
+              type="range"
+              :value="terrainScale"
+              min="0.5"
+              max="5"
+              step="0.1"
+              aria-label="地形起伏倍率"
+              @input="handleTerrainScaleInput"
+            />
+          </div>
+        </FloatingWindow>
 
         <aside class="side-rail rail-right" aria-label="右侧操作">
           <div class="rail-actions">
@@ -265,18 +419,15 @@ const resourceLoads = [
             </button>
           </div>
 
-          <section
+          <FloatingWindow
             v-if="expandedRightAction && activeRightPanel === null"
             id="right-secondary-menu"
-            class="floating-panel rail-panel panel-right rail-submenu"
-            role="region"
-            :aria-label="`${expandedRightAction.label}二级菜单`"
-            @keydown.escape="expandedRightMenu = null"
+            class="rail-panel panel-right rail-submenu"
+            :title="expandedRightAction.label"
+            variant="submenu"
+            :close-label="`关闭${expandedRightAction.label}二级菜单`"
+            @close="expandedRightMenu = null"
           >
-            <div class="submenu-head">
-              <span>SECONDARY</span>
-              <strong>{{ expandedRightAction.label }}</strong>
-            </div>
             <button
               class="submenu-option"
               type="button"
@@ -286,30 +437,18 @@ const resourceLoads = [
               <span>{{ expandedRightAction.label }}</span>
               <i class="bi bi-chevron-right submenu-chevron" aria-hidden="true"></i>
             </button>
-          </section>
+          </FloatingWindow>
 
-          <section
+          <FloatingWindow
             v-if="activeRightPanel === 'alerts'"
             id="right-alerts-panel"
-            class="floating-panel rail-panel panel-right"
-            role="region"
-            aria-label="实时告警"
-            @keydown.escape="activeRightPanel = null"
+            class="rail-panel panel-right"
+            title="实时告警"
+            tag="ALERT"
+            tag-tone="alert"
+            close-label="关闭实时告警"
+            @close="closeRightPanel"
           >
-            <div class="panel-head">
-              <div class="panel-heading">
-                <h2>实时告警</h2>
-                <span class="panel-tag is-alert">ALERT</span>
-              </div>
-              <button
-                class="panel-close"
-                type="button"
-                aria-label="关闭实时告警"
-                @click="closeRightPanel"
-              >
-                <i class="bi bi-x-lg" aria-hidden="true"></i>
-              </button>
-            </div>
             <ul class="alert-list">
               <li v-for="alert in alerts" :key="alert.title" :class="alert.level">
                 <span class="alert-dot" aria-hidden="true"></span>
@@ -319,30 +458,17 @@ const resourceLoads = [
                 </div>
               </li>
             </ul>
-          </section>
+          </FloatingWindow>
 
-          <section
+          <FloatingWindow
             v-if="activeRightPanel === 'resources'"
             id="right-resources-panel"
-            class="floating-panel rail-panel panel-right"
-            role="region"
-            aria-label="资源负载"
-            @keydown.escape="closeRightPanel"
+            class="rail-panel panel-right"
+            title="资源负载"
+            tag="LOAD"
+            close-label="关闭资源负载"
+            @close="closeRightPanel"
           >
-            <div class="panel-head">
-              <div class="panel-heading">
-                <h2>资源负载</h2>
-                <span class="panel-tag">LOAD</span>
-              </div>
-              <button
-                class="panel-close"
-                type="button"
-                aria-label="关闭资源负载"
-                @click="closeRightPanel"
-              >
-                <i class="bi bi-x-lg" aria-hidden="true"></i>
-              </button>
-            </div>
             <div class="resource-list">
               <div v-for="resource in resourceLoads" :key="resource.name">
                 <div class="resource-row">
@@ -355,16 +481,16 @@ const resourceLoads = [
                 <small>{{ resource.state }}</small>
               </div>
             </div>
-          </section>
+          </FloatingWindow>
         </aside>
       </div>
     </main>
 
     <footer class="statusbar">
       <div class="status-group">
-        <span>3D MODE</span>
-        <span>WGS 84</span>
-        <span>OSM TILE</span>
+        <span>{{ sceneMode === "3d" ? "3D MODE" : "2D MODE" }}</span>
+        <span>CGCS2000</span>
+        <span>天地图影像</span>
       </div>
       <div class="status-group">
         <span>静态演示页面</span>
@@ -469,13 +595,6 @@ body,
   pointer-events: none;
 }
 
-.floating-panel {
-  border: 1px solid var(--panel-border);
-  background: var(--panel-bg);
-  box-shadow: var(--panel-shadow);
-  backdrop-filter: blur(12px);
-}
-
 .topbar {
   border: 0;
   border-bottom: 1px solid var(--panel-border);
@@ -559,6 +678,7 @@ body,
 
 .content-grid {
   --rail-map-gap: 18px;
+  --map-menu-width: min(302px, calc(100vw - 88px - 4 * var(--rail-map-gap)));
 
   flex: 1;
   position: relative;
@@ -664,19 +784,11 @@ body,
   opacity: 1;
 }
 
-.floating-panel {
-  position: relative;
-  min-width: 0;
-  padding: 15px;
-  overflow: hidden;
-  border-radius: 6px;
-}
-
 .rail-panel {
   position: absolute;
   top: 0;
   z-index: 3;
-  width: min(302px, calc(100vw - 88px - 4 * var(--rail-map-gap)));
+  width: var(--map-menu-width);
   max-height: 100%;
   overflow-y: auto;
   scrollbar-width: thin;
@@ -698,97 +810,6 @@ body,
 
 .panel-right {
   right: calc(100% + var(--rail-map-gap));
-}
-
-.panel-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding-bottom: 11px;
-  border-bottom: 1px solid var(--panel-inner-line);
-}
-
-.panel-head h2 {
-  margin: 0;
-  color: var(--text-primary);
-  font-size: 15px;
-  font-weight: 650;
-  line-height: 1.25;
-}
-
-.panel-heading {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.panel-close {
-  display: grid;
-  flex: 0 0 auto;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  border: 1px solid transparent;
-  border-radius: 3px;
-  color: var(--text-muted);
-  background: transparent;
-}
-
-.panel-close:hover,
-.panel-close:focus-visible {
-  border-color: var(--panel-border);
-  color: var(--text-primary);
-  background: rgba(31, 62, 104, 0.5);
-}
-
-.panel-close:focus-visible {
-  outline: 2px solid rgba(72, 229, 255, 0.42);
-  outline-offset: 2px;
-}
-
-.panel-tag {
-  color: var(--text-muted);
-  font-family: ui-monospace, Consolas, monospace;
-  font-size: 10px;
-  line-height: 1;
-}
-
-.panel-tag.is-alert {
-  color: var(--rose);
-}
-
-.rail-submenu {
-  padding: 13px;
-}
-
-.submenu-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid var(--panel-inner-line);
-}
-
-.submenu-head span {
-  color: var(--text-muted);
-  font-family: ui-monospace, Consolas, monospace;
-  font-size: 10px;
-  line-height: 1;
-}
-
-.submenu-head strong {
-  overflow: hidden;
-  color: var(--text-primary);
-  font-size: 14px;
-  font-weight: 650;
-  line-height: 1.25;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .submenu-option {
@@ -835,6 +856,128 @@ body,
 .submenu-option:focus-visible {
   outline: 2px solid rgba(72, 229, 255, 0.42);
   outline-offset: 2px;
+}
+
+.map-operation-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.map-operation-list .submenu-option {
+  margin-top: 0;
+}
+
+.submenu-option.is-active,
+.submenu-option.is-open {
+  border-color: rgba(72, 229, 255, 0.72);
+  color: var(--cyan);
+  background: rgba(16, 47, 83, 0.86);
+}
+
+.submenu-option:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.submenu-option:disabled:hover,
+.submenu-option:disabled:focus-visible {
+  border-color: rgba(79, 151, 255, 0.24);
+  color: var(--text-secondary);
+  background: rgba(19, 40, 72, 0.38);
+}
+
+.operation-mode,
+.operation-switch {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+}
+
+.operation-mode {
+  min-width: 34px;
+  height: 21px;
+  padding: 0 5px;
+  border: 1px solid rgba(72, 229, 255, 0.36);
+  border-radius: 3px;
+  color: var(--cyan);
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 11px;
+  line-height: 1;
+}
+
+.operation-switch {
+  position: relative;
+  width: 34px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid rgba(103, 139, 191, 0.58);
+  border-radius: 9px;
+  background: rgba(9, 24, 45, 0.92);
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease;
+}
+
+.operation-switch-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--text-secondary);
+  transition:
+    transform 160ms ease,
+    background-color 160ms ease;
+}
+
+.submenu-option.is-active .operation-switch {
+  border-color: rgba(72, 229, 255, 0.78);
+  background: rgba(20, 70, 100, 0.94);
+}
+
+.submenu-option.is-active .operation-switch-thumb {
+  transform: translateX(16px);
+  background: var(--cyan);
+}
+
+.terrain-scale-window {
+  --window-padding: 10px;
+  --window-head-padding: 8px;
+  --window-title-size: 13px;
+  --window-tag-size: 9px;
+  --window-close-size: 20px;
+
+  position: absolute;
+  top: var(--rail-map-gap);
+  left: calc(44px + 3 * var(--rail-map-gap) + var(--map-menu-width));
+  z-index: 2;
+  width: min(220px, calc(100vw - 160px));
+  min-width: 0;
+  pointer-events: auto;
+}
+
+.terrain-scale-body {
+  display: grid;
+  gap: 9px;
+  margin-top: 10px;
+}
+
+.terrain-scale-body > strong {
+  color: var(--cyan);
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.terrain-slider {
+  width: 100%;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--cyan);
 }
 
 .metric-grid {
@@ -1071,8 +1214,8 @@ body,
 }
 
 @media (max-width: 1439px) {
-  .rail-panel {
-    width: min(286px, calc(100vw - 88px - 4 * var(--rail-map-gap)));
+  .content-grid {
+    --map-menu-width: min(286px, calc(100vw - 88px - 4 * var(--rail-map-gap)));
   }
 }
 
@@ -1113,6 +1256,14 @@ body,
 
   .map-stage {
     display: none;
+  }
+
+  .terrain-scale-window {
+    position: relative;
+    top: auto;
+    right: auto;
+    left: auto;
+    width: min(240px, 100%);
   }
 
   .side-rail {
