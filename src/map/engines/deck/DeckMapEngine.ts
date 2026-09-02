@@ -59,10 +59,13 @@ export class DeckMapEngine implements MapEngine {
       width: this.container.clientWidth || 1,
       height: this.container.clientHeight || 1,
     })
-    const target = viewport.fitBounds([
-      [bounds.west, bounds.south],
-      [bounds.east, bounds.north],
-    ])
+    const target = viewport.fitBounds(
+      [
+        [bounds.west, bounds.south],
+        [bounds.east, bounds.north],
+      ],
+      { padding: 40 },
+    )
 
     this.setViewState({
       longitude: target.longitude,
