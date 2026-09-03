@@ -1,8 +1,7 @@
 import * as Cesium from "cesium"
 import type { CameraState, MapBounds, MapCoordinate } from "../../types"
+import { MAX_CAMERA_HEIGHT, MIN_CAMERA_HEIGHT } from "../../cameraLimits"
 
-const MIN_CAMERA_HEIGHT = 1
-const MAX_CAMERA_HEIGHT = 8_000_000
 const MIN_CAMERA_PITCH = -89.9
 const MAX_CAMERA_PITCH = 89.9
 

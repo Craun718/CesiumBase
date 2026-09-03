@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from "vue"
-import { useMapController, type CameraState } from "../map"
+import { MAX_CAMERA_HEIGHT, MIN_CAMERA_HEIGHT, useMapController, type CameraState } from "../map"
 
 const mapController = useMapController()
 
@@ -8,9 +8,7 @@ type ViewOperationSection = "position" | "camera"
 
 defineProps<{ section: ViewOperationSection }>()
 
-const MIN_HEIGHT = 1
-const MAX_HEIGHT = 8_000_000
-const LOG_HEIGHT_RANGE = Math.log10(MAX_HEIGHT)
+const LOG_HEIGHT_RANGE = Math.log10(MAX_CAMERA_HEIGHT) - Math.log10(MIN_CAMERA_HEIGHT)
 
 const coordinateForm = reactive({
   longitude: "108.25",
@@ -23,6 +21,8 @@ const cameraForm = reactive({
   height: "700000",
 })
 
+let headingOverride: number | undefined
+let headingInteractionDeadline = 0
 const feedback = ref("")
 const feedbackTone = ref<"info" | "error">("info")
 let disposeMountState: (() => void) | undefined
@@ -71,7 +71,9 @@ function applyCameraField(field: "heading" | "pitch" | "height") {
   }
 
   if (field === "heading") {
-    const heading = ((value % 360) + 360) % 360
+    const heading = Math.min(360, Math.max(-360, value))
+    headingOverride = heading
+    headingInteractionDeadline = performance.now() + 120
     cameraForm.heading = String(Math.round(heading))
     mapController.setCameraState({ heading })
     return
@@ -84,15 +86,28 @@ function applyCameraField(field: "heading" | "pitch" | "height") {
     return
   }
 
-  const height = Math.round(Math.min(MAX_HEIGHT, Math.max(MIN_HEIGHT, value)))
+  const height = Math.round(Math.min(MAX_CAMERA_HEIGHT, Math.max(MIN_CAMERA_HEIGHT, value)))
   cameraForm.height = String(height)
   mapController.setCameraState({ height })
 }
 
+function normalizeHeading(value: number) {
+  return ((value % 360) + 360) % 360
+}
+
 function syncCameraState(state: CameraState) {
+  if (performance.now() < headingInteractionDeadline) return
+
+  const normalizedHeading =
+    headingOverride === undefined ? undefined : normalizeHeading(headingOverride)
+  const heading = normalizedHeading === state.heading ? headingOverride : state.heading
+  if (normalizedHeading !== state.heading) {
+    headingOverride = undefined
+  }
+
   syncField("longitude", state.longitude.toFixed(6))
   syncField("latitude", state.latitude.toFixed(6))
-  syncField("heading", String(Math.round(state.heading)))
+  syncField("heading", String(Math.round(heading ?? state.heading)))
   syncField("pitch", String(Math.round(state.pitch)))
   syncField("height", String(Math.round(state.height)))
 }
@@ -118,12 +133,14 @@ function syncField(field: string, value: string) {
 }
 
 function heightToSlider(height: number) {
-  const safeHeight = Math.min(MAX_HEIGHT, Math.max(MIN_HEIGHT, height))
-  return (Math.log10(safeHeight) / LOG_HEIGHT_RANGE) * 1000
+  const safeHeight = Math.min(MAX_CAMERA_HEIGHT, Math.max(MIN_CAMERA_HEIGHT, height))
+  return ((Math.log10(safeHeight) - Math.log10(MIN_CAMERA_HEIGHT)) / LOG_HEIGHT_RANGE) * 1000
 }
 
 function sliderToHeight(position: number) {
-  return 10 ** ((Math.min(1000, Math.max(0, position)) / 1000) * LOG_HEIGHT_RANGE)
+  return (
+    MIN_CAMERA_HEIGHT * 10 ** ((Math.min(1000, Math.max(0, position)) / 1000) * LOG_HEIGHT_RANGE)
+  )
 }
 
 function showFeedback(message: string, tone: "info" | "error" = "info") {
@@ -199,7 +216,7 @@ onBeforeUnmount(() => {
             class="parameter-number"
             type="number"
             inputmode="decimal"
-            min="0"
+            min="-360"
             max="360"
             step="1"
             data-camera-field="heading"
@@ -210,7 +227,7 @@ onBeforeUnmount(() => {
           v-model="cameraForm.heading"
           class="parameter-slider"
           type="range"
-          min="0"
+          min="-360"
           max="360"
           step="1"
           aria-label="方位角"
@@ -257,8 +274,8 @@ onBeforeUnmount(() => {
             class="parameter-number"
             type="number"
             inputmode="decimal"
-            min="1"
-            max="8000000"
+            min="500"
+            :max="MAX_CAMERA_HEIGHT"
             step="1"
             data-camera-field="height"
             @change="applyCameraField('height')"

@@ -11,9 +11,9 @@ import { createDeckLayers, getDeckTooltip, WebMercatorViewport } from "./layers"
 import { CesiumStyleTerrainController } from "./terrainController"
 
 // 视野级缩放限制（zoom 为 deck 单位），与 cesium 引擎 sceneOperations.ts 的
-// MAXIMUM_ZOOM_DISTANCE = 8_000_000（8000 km）视野量级对齐：zoom 2.5 ≈ 700 km × 2^3.5 ≈ 8000 km，
+// MAXIMUM_ZOOM_DISTANCE = 5_000_000（5000 km）视野量级对齐：zoom 3 ≈ 700 km × 2^3 = 5600 km，
 // 两引擎缩到极限时应停在大致相同的视野；调整任一侧需同步另一侧。
-const MIN_ZOOM = 2.5
+const MIN_ZOOM = 3
 // 近景缩放上限，与缩放下限无对齐关系，仅随原内联值提取。
 const MAX_ZOOM = 14
 const EARTH_CIRCUMFERENCE = 40_075_016.686
