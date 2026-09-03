@@ -3,11 +3,15 @@ import { computed, onBeforeUnmount, ref } from "vue"
 import ErrorBoundary from "./components/ErrorBoundary.vue"
 import MapViewport from "./components/MapViewport.vue"
 import FloatingWindow from "./components/FloatingWindow.vue"
+import ViewOperationsPanel from "./components/ViewOperationsPanel.vue"
 import { mapEngineId, provideMapController, type ImagerySource, type SceneMode } from "./map"
 import { useLocalStore } from "./stores"
 
 type LeftPanelId = "overview" | "distribution" | "map"
-type RightPanelId = "alerts" | "resources" | "view"
+type RightMenuId = "view" | "alerts" | "resources"
+type ViewPanelId = "view-position" | "view-camera"
+type ViewOperationId = ViewPanelId | "view-fullscreen" | "view-screenshot"
+type RightPanelId = ViewPanelId | "alerts" | "resources"
 type MapOperationId =
   | "return-guangxi"
   | "scene-mode"
@@ -20,7 +24,7 @@ type MapOperationId =
 const activeLeftPanel = ref<LeftPanelId | null>(null)
 const activeRightPanel = ref<RightPanelId | null>(null)
 const expandedLeftMenu = ref<LeftPanelId | null>(null)
-const expandedRightMenu = ref<RightPanelId | null>(null)
+const expandedRightMenu = ref<RightMenuId | null>(null)
 const sceneMode = ref<SceneMode>("3d")
 const rotateEnabled = ref(false)
 const northLocked = ref(false)
@@ -58,7 +62,19 @@ const rightActions = [
   { id: "view", label: "视角操作", icon: "bi-eye" },
   { id: "alerts", label: "实时告警", icon: "bi-bell" },
   { id: "resources", label: "资源负载", icon: "bi-cpu" },
-] satisfies Array<{ id: RightPanelId; label: string; icon: string }>
+] satisfies Array<{ id: RightMenuId; label: string; icon: string }>
+
+const viewOperations = [
+  { id: "view-position", label: "视角定位", icon: "bi-crosshair", kind: "panel" },
+  { id: "view-camera", label: "相机参数", icon: "bi-camera-reels", kind: "panel" },
+  { id: "view-fullscreen", label: "场景全屏", icon: "bi-arrows-fullscreen", kind: "command" },
+  { id: "view-screenshot", label: "场景截屏下载", icon: "bi-camera", kind: "command" },
+] satisfies Array<{
+  id: ViewOperationId
+  label: string
+  icon: string
+  kind: "panel" | "command"
+}>
 
 const mapOperations = [
   { id: "return-guangxi", label: "返回广西", icon: "bi-geo-alt", kind: "command" },
@@ -79,20 +95,9 @@ const expandedLeftAction = computed(
   () => leftActions.find((action) => action.id === expandedLeftMenu.value) ?? null,
 )
 
-const expandedRightAction = computed(() => {
-  const action = rightActions.find((item) => item.id === expandedRightMenu.value) ?? null
-  // 视角操作有自己的专用面板，不进入通用二级菜单流程。
-  return action?.id === "view" ? null : action
-})
-
-const VIEW_OPERATION_IDS = new Set<MapOperationId>([
-  "return-guangxi",
-  "scene-mode",
-  "rotate-browse",
-  "north-lock",
-  "compass",
-])
-const viewOperations = mapOperations.filter((operation) => VIEW_OPERATION_IDS.has(operation.id))
+const expandedRightAction = computed(
+  () => rightActions.find((action) => action.id === expandedRightMenu.value) ?? null,
+)
 
 function toggleLeftPanel(panel: LeftPanelId) {
   if (panel === "map") {
@@ -115,19 +120,50 @@ function toggleLeftPanel(panel: LeftPanelId) {
   activeLeftPanel.value = null
 }
 
-function toggleRightPanel(panel: RightPanelId) {
-  if (activeRightPanel.value === panel) {
+function toggleRightAction(action: RightMenuId) {
+  if (action === "view") {
+    if (expandedRightMenu.value === action && activeRightPanel.value === null) {
+      expandedRightMenu.value = null
+      return
+    }
+
+    expandedRightMenu.value = action
+    activeRightPanel.value = null
+    return
+  }
+
+  if (activeRightPanel.value === action) {
     closeRightPanel()
     return
   }
 
-  if (expandedRightMenu.value === panel) {
-    openRightPanel(panel)
+  if (expandedRightMenu.value === action) {
+    openRightPanel(action)
     return
   }
 
-  expandedRightMenu.value = panel
+  expandedRightMenu.value = action
   activeRightPanel.value = null
+}
+
+function isRightActionActive(action: RightMenuId) {
+  if (action === "view") {
+    return expandedRightMenu.value === action || activeRightPanel.value?.startsWith("view-")
+  }
+
+  return expandedRightMenu.value === action || activeRightPanel.value === action
+}
+
+function getRightActionControls(action: RightMenuId) {
+  if (expandedRightMenu.value === action) {
+    return action === "view" ? "right-view-secondary-menu" : "right-secondary-menu"
+  }
+
+  if (action === "view" && activeRightPanel.value?.startsWith("view-")) {
+    return `right-${activeRightPanel.value}-panel`
+  }
+
+  return `right-${action}-panel`
 }
 
 function openLeftPanel(panel: LeftPanelId) {
@@ -138,6 +174,39 @@ function openLeftPanel(panel: LeftPanelId) {
 function openRightPanel(panel: RightPanelId) {
   expandedRightMenu.value = null
   activeRightPanel.value = panel
+}
+
+function openRightActionPanel(action: RightMenuId) {
+  if (action === "view") return
+
+  openRightPanel(action)
+}
+
+function activateViewOperation(operationId: ViewOperationId) {
+  if (operationId === "view-position" || operationId === "view-camera") {
+    openRightPanel(operationId)
+    return
+  }
+
+  if (operationId === "view-fullscreen") {
+    mapController.toggleSceneFullscreen().catch(() => {})
+    return
+  }
+
+  const dataUrl = mapController.captureScreenshot()
+  if (!dataUrl) return
+
+  const link = document.createElement("a")
+  link.href = dataUrl
+  link.download = `scene-${createSceneTimestamp()}.png`
+  link.click()
+}
+
+function createSceneTimestamp() {
+  const now = new Date()
+  const pad = (value: number) => String(value).padStart(2, "0")
+
+  return `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`
 }
 
 function closeLeftPanel() {
@@ -382,7 +451,7 @@ const resourceLoads = [
             close-label="关闭地图操作二级菜单"
             @close="expandedLeftMenu = null"
           >
-            <div class="map-operation-list">
+            <div class="submenu-operation-list">
               <button
                 v-for="operation in mapOperations"
                 :key="operation.id"
@@ -567,17 +636,11 @@ const resourceLoads = [
               v-for="action in rightActions"
               :key="action.id"
               class="rail-button"
-              :class="{
-                'is-active': expandedRightMenu === action.id || activeRightPanel === action.id,
-              }"
+              :class="{ 'is-active': isRightActionActive(action.id) }"
               type="button"
-              :aria-expanded="expandedRightMenu === action.id || activeRightPanel === action.id"
-              :aria-controls="
-                expandedRightMenu === action.id
-                  ? 'right-secondary-menu'
-                  : `right-${action.id}-panel`
-              "
-              @click="toggleRightPanel(action.id)"
+              :aria-expanded="isRightActionActive(action.id)"
+              :aria-controls="getRightActionControls(action.id)"
+              @click="toggleRightAction(action.id)"
             >
               <i class="bi" :class="action.icon" aria-hidden="true"></i>
               <span>{{ action.label }}</span>
@@ -585,7 +648,37 @@ const resourceLoads = [
           </div>
 
           <FloatingWindow
-            v-if="expandedRightAction && activeRightPanel === null"
+            v-if="expandedRightMenu === 'view' && activeRightPanel === null"
+            id="right-view-secondary-menu"
+            class="rail-panel panel-right rail-submenu"
+            title="视角操作"
+            variant="submenu"
+            close-label="关闭视角操作二级菜单"
+            @close="expandedRightMenu = null"
+          >
+            <div class="submenu-operation-list">
+              <button
+                v-for="operation in viewOperations"
+                :key="operation.id"
+                class="submenu-option"
+                type="button"
+                @click="activateViewOperation(operation.id)"
+              >
+                <i class="bi" :class="operation.icon" aria-hidden="true"></i>
+                <span>{{ operation.label }}</span>
+                <i
+                  v-if="operation.kind === 'panel'"
+                  class="bi bi-chevron-right submenu-chevron"
+                  aria-hidden="true"
+                ></i>
+              </button>
+            </div>
+          </FloatingWindow>
+
+          <FloatingWindow
+            v-else-if="
+              expandedRightAction && expandedRightMenu !== 'view' && activeRightPanel === null
+            "
             id="right-secondary-menu"
             class="rail-panel panel-right rail-submenu"
             :title="expandedRightAction.label"
@@ -596,7 +689,7 @@ const resourceLoads = [
             <button
               class="submenu-option"
               type="button"
-              @click="openRightPanel(expandedRightAction.id)"
+              @click="openRightActionPanel(expandedRightAction.id)"
             >
               <i class="bi" :class="expandedRightAction.icon" aria-hidden="true"></i>
               <span>{{ expandedRightAction.label }}</span>
@@ -605,45 +698,27 @@ const resourceLoads = [
           </FloatingWindow>
 
           <FloatingWindow
-            v-if="activeRightPanel === 'view'"
-            id="right-view-panel"
+            v-if="activeRightPanel === 'view-position'"
+            id="right-view-position-panel"
             class="rail-panel panel-right"
-            title="视角操作"
+            title="视角定位"
             tag="VIEW"
-            close-label="关闭视角操作"
+            close-label="关闭视角定位"
             @close="closeRightPanel"
           >
-            <div class="map-operation-list">
-              <button
-                v-for="operation in viewOperations"
-                :key="operation.id"
-                class="submenu-option map-operation"
-                :class="{
-                  'is-active': operation.kind === 'toggle' && isMapOperationActive(operation.id),
-                }"
-                type="button"
-                :disabled="isMapOperationDisabled(operation.id)"
-                :aria-pressed="
-                  operation.kind === 'toggle' ? isMapOperationActive(operation.id) : undefined
-                "
-                :title="isMapOperationDisabled(operation.id) ? '仅3D模式可用' : undefined"
-                @click="activateMapOperation(operation.id)"
-              >
-                <i class="bi" :class="operation.icon" aria-hidden="true"></i>
-                <span>{{ operation.label }}</span>
-                <i
-                  v-if="operation.kind === 'command'"
-                  class="bi bi-chevron-right submenu-chevron"
-                  aria-hidden="true"
-                ></i>
-                <span v-else-if="operation.kind === 'mode'" class="operation-mode">
-                  {{ sceneMode.toUpperCase() }}
-                </span>
-                <span v-else class="operation-switch" aria-hidden="true">
-                  <span class="operation-switch-thumb"></span>
-                </span>
-              </button>
-            </div>
+            <ViewOperationsPanel section="position" />
+          </FloatingWindow>
+
+          <FloatingWindow
+            v-if="activeRightPanel === 'view-camera'"
+            id="right-view-camera-panel"
+            class="rail-panel panel-right"
+            title="相机参数"
+            tag="CAMERA"
+            close-label="关闭相机参数"
+            @close="closeRightPanel"
+          >
+            <ViewOperationsPanel section="camera" />
           </FloatingWindow>
 
           <FloatingWindow
@@ -1044,13 +1119,13 @@ body,
   outline-offset: 2px;
 }
 
-.map-operation-list {
+.submenu-operation-list {
   display: grid;
   gap: 10px;
   margin-top: 12px;
 }
 
-.map-operation-list .submenu-option {
+.submenu-operation-list .submenu-option {
   margin-top: 0;
 }
 

@@ -9,6 +9,21 @@ export type MapBounds = {
   north: number
 }
 
+/** 引擎无关的相机状态；height 为相机海拔高度，单位米。 */
+export interface CameraState {
+  readonly longitude: number
+  readonly latitude: number
+  readonly height: number
+  readonly heading: number
+  readonly pitch: number
+}
+
+/** 用于视角定位的地面坐标。 */
+export interface MapCoordinate {
+  readonly longitude: number
+  readonly latitude: number
+}
+
 /**
  * 引擎无关的图源描述。
  *
@@ -28,6 +43,8 @@ export interface MapEngine {
   unmount(): void
 
   flyToBounds(bounds: MapBounds): void
+  /** 保持当前相机高度、朝向和俯仰，飞行到指定经纬度。 */
+  flyToCoordinate(coordinate: MapCoordinate): void
   setSceneMode(mode: SceneMode): void
   setRotateBrowse(enabled: boolean): void
   setNorthLock(enabled: boolean): void
@@ -37,6 +54,16 @@ export interface MapEngine {
   setCameraHeading(heading: number): void
   resetCameraNorth(): void
   onCameraHeadingChange(listener: (heading: number) => void): () => void
+  /** 读取当前相机参数；引擎未挂载时返回安全默认值。 */
+  getCameraState(): CameraState
+  /** 局部更新相机参数；未提供的字段保持当前值。 */
+  setCameraState(state: Partial<Omit<CameraState, "longitude" | "latitude">>): void
+  /** 监听相机参数变化，返回取消监听函数。 */
+  onCameraStateChange(listener: (state: CameraState) => void): () => void
+  /** 在地图容器与浏览器全屏状态间切换；返回是否实际执行了切换。 */
+  toggleSceneFullscreen(): Promise<boolean>
+  /** 返回当前渲染画面 PNG 数据 URL；不支持或捕获失败时返回 undefined。 */
+  captureScreenshot(): string | undefined
 
   /**
    * 当前引擎支持的图源列表（用于 UI 渲染下拉/列表）。

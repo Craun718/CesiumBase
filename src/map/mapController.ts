@@ -1,5 +1,13 @@
 import { loadMapEngine } from "./engineProvider"
-import type { ImagerySource, MapBounds, MapEngine, MapEngineLoader, SceneMode } from "./types"
+import type {
+  CameraState,
+  ImagerySource,
+  MapBounds,
+  MapCoordinate,
+  MapEngine,
+  MapEngineLoader,
+  SceneMode,
+} from "./types"
 
 const guangxiBounds: MapBounds = {
   west: 105,
@@ -59,6 +67,10 @@ export class MapController {
     this.engine?.flyToBounds(guangxiBounds)
   }
 
+  flyToCoordinate(coordinate: MapCoordinate) {
+    this.engine?.flyToCoordinate(coordinate)
+  }
+
   setSceneMode(mode: SceneMode) {
     this.engine?.setSceneMode(mode)
   }
@@ -93,6 +105,34 @@ export class MapController {
 
   onCameraHeadingChange(listener: (heading: number) => void) {
     return this.engine?.onCameraHeadingChange(listener) ?? (() => {})
+  }
+
+  getCameraState(): CameraState {
+    return (
+      this.engine?.getCameraState() ?? {
+        longitude: 108.25,
+        latitude: 23.7,
+        height: 700_000,
+        heading: 0,
+        pitch: -90,
+      }
+    )
+  }
+
+  setCameraState(state: Partial<Omit<CameraState, "longitude" | "latitude">>) {
+    this.engine?.setCameraState(state)
+  }
+
+  onCameraStateChange(listener: (state: CameraState) => void) {
+    return this.engine?.onCameraStateChange(listener) ?? (() => {})
+  }
+
+  async toggleSceneFullscreen() {
+    return (await this.engine?.toggleSceneFullscreen()) ?? false
+  }
+
+  captureScreenshot() {
+    return this.engine?.captureScreenshot()
   }
 
   /** 当前引擎支持的图源列表（用于 UI 渲染）。 */

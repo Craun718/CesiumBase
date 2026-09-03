@@ -52,6 +52,8 @@ export async function createViewer(container: HTMLElement) {
     contextOptions: {
       webgl: {
         alpha: true,
+        // 允许在截屏回调中直接读取 WebGL 画布，避免渲染缓冲区已被清空。
+        preserveDrawingBuffer: true,
       },
     },
     ...(ionAccessToken
