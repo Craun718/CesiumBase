@@ -228,10 +228,8 @@ function closeTerrainPanel() {
 /** 打开底图面板并同步引擎当前图源列表与激活项；引擎未挂载时静默忽略。 */
 function openBasemapPanel() {
   const sources = mapController.listBaseImagerySources()
-  if (sources.length > 0) {
-    basemapSources.value = sources
-    activeBasemapId.value = mapController.getBaseImagerySourceId()
-  }
+  basemapSources.value = sources
+  activeBasemapId.value = sources.length > 0 ? mapController.getBaseImagerySourceId() : undefined
 
   basemapOpen.value = true
 }

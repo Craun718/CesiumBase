@@ -80,16 +80,16 @@ export class MapController {
 
   /** 当前引擎支持的图源列表（用于 UI 渲染）。 */
   listBaseImagerySources(): ImagerySource[] {
-    return this.engine?.listBaseImagerySources() ?? []
+    return this.engine?.listBaseImagerySources?.() ?? []
   }
 
   /** 当前激活的图源 id；未挂载或不支持时返回 undefined。 */
   getBaseImagerySourceId(): string | undefined {
-    return this.engine?.getBaseImagerySourceId()
+    return this.engine?.getBaseImagerySourceId?.()
   }
 
   /** 切换激活图源；返回是否实际发生替换。 */
   setBaseImagerySource(id: string): boolean {
-    return this.engine?.setBaseImagerySource(id) ?? false
+    return this.engine?.setBaseImagerySource?.(id) ?? false
   }
 }
