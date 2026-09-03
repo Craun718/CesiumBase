@@ -1,11 +1,17 @@
 import * as Cesium from "cesium"
 import type { SceneMode } from "../../types"
-import { MAX_CAMERA_HEIGHT, MIN_CAMERA_HEIGHT } from "../../cameraLimits"
+import { clampCameraHeight, MAX_CAMERA_HEIGHT, MIN_CAMERA_HEIGHT } from "../../cameraLimits"
 import { getGroundCenter, resetCameraNorth } from "./cameraOperations"
 
 // Keep the controller state that was active before north lock was enabled so
 // toggling the feature does not unexpectedly change other camera settings.
 const northLockPreviousRotateState = new WeakMap<Cesium.Viewer, boolean>()
+
+// 记录待完成的 2D 切换，避免相机飞行途中再次切换时旧回调继续生效。
+const pending2DTransitionTokens = new WeakMap<Cesium.Viewer, object>()
+
+/** 3D 转 2D 前的俯视运镜时长，单位秒。 */
+const SCENE_MORPH_DURATION = 1.2
 
 export function configureScene(viewer: Cesium.Viewer) {
   updateCameraZoomLimits(viewer)
@@ -39,23 +45,71 @@ export function setSceneMode(viewer: Cesium.Viewer, mode: SceneMode) {
 
   if (viewer.scene.mode === sceneMode) return
 
-  // Cesium 零动画切换以相机位置为基准，倾斜视角下屏幕中心会偏移；
-  // 因此切换前记录地面中心，切换后按当前 2D 视野宽度重新定位。
-  const groundCenter = mode === "2d" ? getGroundCenter(viewer) : undefined
+  if (mode === "2d") {
+    transitionTo2DWithCameraMove(viewer)
+    return
+  }
 
+  cancelPending2DTransition(viewer)
   viewer.scene.mode = sceneMode
+}
 
-  if (!groundCenter) return
+function transitionTo2DWithCameraMove(viewer: Cesium.Viewer) {
+  // Cesium 零动画切换以相机位置为基准，倾斜视角下屏幕中心会偏移；
+  // 先把当前中心点飞成正上方俯视，再切 2D 可同时获得过渡并保持视野中心。
+  const groundCenter = getGroundCenter(viewer)
 
-  const viewHeight = viewer.camera.positionCartographic.height
+  if (!groundCenter) {
+    cancelPending2DTransition(viewer)
+    viewer.scene.mode = Cesium.SceneMode.SCENE2D
+    return
+  }
 
-  viewer.camera.setView({
+  cancelPending2DTransition(viewer)
+  const token = {}
+  pending2DTransitionTokens.set(viewer, token)
+  const viewHeight = clampCameraHeight(viewer.camera.positionCartographic.height)
+
+  viewer.camera.flyTo({
     destination: Cesium.Cartesian3.fromDegrees(
       Cesium.Math.toDegrees(groundCenter.longitude),
       Cesium.Math.toDegrees(groundCenter.latitude),
       viewHeight,
     ),
+    orientation: {
+      heading: 0,
+      pitch: Cesium.Math.toRadians(-90),
+      roll: 0,
+    },
+    duration: SCENE_MORPH_DURATION,
+    easingFunction: Cesium.EasingFunction.QUADRATIC_IN_OUT,
+    complete: () => {
+      if (pending2DTransitionTokens.get(viewer) !== token) return
+
+      pending2DTransitionTokens.delete(viewer)
+      if (viewer.isDestroyed()) return
+
+      viewer.scene.mode = Cesium.SceneMode.SCENE2D
+
+      viewer.camera.setView({
+        destination: Cesium.Cartesian3.fromDegrees(
+          Cesium.Math.toDegrees(groundCenter.longitude),
+          Cesium.Math.toDegrees(groundCenter.latitude),
+          viewHeight,
+        ),
+      })
+    },
+    cancel: () => {
+      if (pending2DTransitionTokens.get(viewer) === token) {
+        pending2DTransitionTokens.delete(viewer)
+      }
+    },
   })
+}
+
+function cancelPending2DTransition(viewer: Cesium.Viewer) {
+  pending2DTransitionTokens.delete(viewer)
+  viewer.camera.cancelFlight()
 }
 
 export function setRotateBrowse(_viewer: Cesium.Viewer, _enabled: boolean) {}
