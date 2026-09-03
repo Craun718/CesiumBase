@@ -1,5 +1,5 @@
 import { loadMapEngine } from "./engineProvider"
-import type { MapBounds, MapEngine, MapEngineLoader, SceneMode } from "./types"
+import type { ImagerySource, MapBounds, MapEngine, MapEngineLoader, SceneMode } from "./types"
 
 const guangxiBounds: MapBounds = {
   west: 105,
@@ -28,7 +28,7 @@ export class MapController {
     if (generation !== this.mountGeneration) return
 
     const engine = createEngine()
-    engine.mount(container)
+    await engine.mount(container)
     this.engine = engine
   }
 
@@ -76,5 +76,20 @@ export class MapController {
 
   onCameraHeadingChange(listener: (heading: number) => void) {
     return this.engine?.onCameraHeadingChange(listener) ?? (() => {})
+  }
+
+  /** 当前引擎支持的图源列表（用于 UI 渲染）。 */
+  listBaseImagerySources(): ImagerySource[] {
+    return this.engine?.listBaseImagerySources() ?? []
+  }
+
+  /** 当前激活的图源 id；未挂载或不支持时返回 undefined。 */
+  getBaseImagerySourceId(): string | undefined {
+    return this.engine?.getBaseImagerySourceId()
+  }
+
+  /** 切换激活图源；返回是否实际发生替换。 */
+  setBaseImagerySource(id: string): boolean {
+    return this.engine?.setBaseImagerySource(id) ?? false
   }
 }

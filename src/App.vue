@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, ref } from "vue"
+import ErrorBoundary from "./components/ErrorBoundary.vue"
 import MapViewport from "./components/MapViewport.vue"
 import FloatingWindow from "./components/FloatingWindow.vue"
-import { mapEngineId, provideMapController, type SceneMode } from "./map"
+import { mapEngineId, provideMapController, type ImagerySource, type SceneMode } from "./map"
 
 type LeftPanelId = "overview" | "distribution" | "map"
 type RightPanelId = "alerts" | "resources"
@@ -12,6 +13,7 @@ type MapOperationId =
   | "rotate-browse"
   | "north-lock"
   | "terrain"
+  | "basemap"
   | "compass"
 
 const activeLeftPanel = ref<LeftPanelId | null>(null)
@@ -24,7 +26,18 @@ const northLocked = ref(false)
 const terrainEnabled = ref(false)
 const compassVisible = ref(true)
 const terrainScale = ref(1)
+const basemapOpen = ref(false)
+// 图源列表在打开底图面板时从引擎拉取；激活 id 默认与注册表首项对齐，避免状态栏空白。
+const basemapSources = ref<ImagerySource[]>([])
+const activeBasemapId = ref<string | undefined>("tianditu-img")
 const mapController = provideMapController()
+
+const activeBasemapLabel = computed(() => {
+  const id = activeBasemapId.value
+  if (!id) return "天地图影像"
+  const source = basemapSources.value.find((item) => item.id === id)
+  return source?.label ?? id
+})
 
 const mapEngineLabel = mapEngineId === "deck-gl" ? "DECK.GL" : "CESIUM"
 
@@ -45,6 +58,7 @@ const mapOperations = [
   { id: "rotate-browse", label: "旋转浏览", icon: "bi-arrow-repeat", kind: "toggle" },
   { id: "north-lock", label: "正北锁定", icon: "bi-compass", kind: "toggle" },
   { id: "terrain", label: "地形突出", icon: "bi-mountain", kind: "command" },
+  { id: "basemap", label: "底图切换", icon: "bi-grid-1x2", kind: "command" },
   { id: "compass", label: "显示指北针", icon: "bi-signpost-2", kind: "toggle" },
 ] satisfies Array<{
   id: MapOperationId
@@ -163,10 +177,29 @@ function activateMapOperation(operationId: MapOperationId) {
   }
 
   if (operationId === "terrain") {
+    // 与底图切换互斥：打开地形面板前先关闭底图面板。
+    if (basemapOpen.value) {
+      basemapOpen.value = false
+    }
+
     if (terrainEnabled.value) return
 
     terrainEnabled.value = true
     mapController.setTerrainExaggeration(true, terrainScale.value)
+
+    return
+  }
+
+  if (operationId === "basemap") {
+    // 与地形突出互斥：打开底图面板前先关闭地形面板并回退引擎夸张设置。
+    if (terrainEnabled.value) {
+      terrainEnabled.value = false
+      mapController.setTerrainExaggeration(false, terrainScale.value)
+    }
+
+    if (basemapOpen.value) return
+
+    openBasemapPanel()
 
     return
   }
@@ -190,6 +223,29 @@ function handleTerrainScaleInput(event: Event) {
 function closeTerrainPanel() {
   terrainEnabled.value = false
   mapController.setTerrainExaggeration(false, terrainScale.value)
+}
+
+/** 打开底图面板并同步引擎当前图源列表与激活项；引擎未挂载时静默忽略。 */
+function openBasemapPanel() {
+  const sources = mapController.listBaseImagerySources()
+  if (sources.length > 0) {
+    basemapSources.value = sources
+    activeBasemapId.value = mapController.getBaseImagerySourceId()
+  }
+
+  basemapOpen.value = true
+}
+
+function closeBasemapPanel() {
+  basemapOpen.value = false
+}
+
+/** 切换图源后保留面板，便于连续对比；关闭走面板右上角 X。 */
+function selectBasemap(id: string) {
+  const applied = mapController.setBaseImagerySource(id)
+  if (applied) {
+    activeBasemapId.value = id
+  }
 }
 
 const overviewMetrics = [
@@ -256,10 +312,10 @@ const resourceLoads = [
               :aria-controls="
                 expandedLeftMenu === action.id ? 'left-secondary-menu' : `left-${action.id}-panel`
               "
-              :data-tip="action.label"
               @click="toggleLeftPanel(action.id)"
             >
               <i class="bi" :class="action.icon" aria-hidden="true"></i>
+              <span>{{ action.label }}</span>
             </button>
           </div>
 
@@ -280,7 +336,9 @@ const resourceLoads = [
                 class="submenu-option map-operation"
                 :class="{
                   'is-active': operation.kind === 'toggle' && isMapOperationActive(operation.id),
-                  'is-open': operation.id === 'terrain' && terrainEnabled,
+                  'is-open':
+                    (operation.id === 'terrain' && terrainEnabled) ||
+                    (operation.id === 'basemap' && basemapOpen),
                 }"
                 type="button"
                 :disabled="isMapOperationDisabled(operation.id)"
@@ -367,11 +425,46 @@ const resourceLoads = [
         </aside>
 
         <div class="map-stage">
-          <MapViewport :compass-visible="compassVisible" :north-locked="northLocked" />
+          <ErrorBoundary>
+            <MapViewport :compass-visible="compassVisible" :north-locked="northLocked" />
+          </ErrorBoundary>
           <span class="stage-label" aria-hidden="true">
             {{ sceneMode === "3d" ? "三维态势视图" : "二维态势视图" }}
           </span>
         </div>
+
+        <FloatingWindow
+          v-if="basemapOpen"
+          id="basemap-window"
+          class="basemap-window"
+          title="底图切换"
+          tag="BASEMAP"
+          close-label="关闭底图切换"
+          @close="closeBasemapPanel"
+        >
+          <div v-if="basemapSources.length === 0" class="basemap-empty">
+            当前引擎暂无可切换的底图
+          </div>
+          <div v-else class="basemap-options" role="radiogroup" aria-label="底图切换">
+            <button
+              v-for="source in basemapSources"
+              :key="source.id"
+              class="basemap-option"
+              :class="{ 'is-active': source.id === activeBasemapId }"
+              type="button"
+              role="radio"
+              :aria-checked="source.id === activeBasemapId"
+              :title="source.description"
+              @click="selectBasemap(source.id)"
+            >
+              <span class="basemap-radio" aria-hidden="true"></span>
+              <span class="basemap-meta">
+                <strong>{{ source.label }}</strong>
+                <small v-if="source.description">{{ source.description }}</small>
+              </span>
+            </button>
+          </div>
+        </FloatingWindow>
 
         <FloatingWindow
           v-if="terrainEnabled"
@@ -413,10 +506,10 @@ const resourceLoads = [
                   ? 'right-secondary-menu'
                   : `right-${action.id}-panel`
               "
-              :data-tip="action.label"
               @click="toggleRightPanel(action.id)"
             >
               <i class="bi" :class="action.icon" aria-hidden="true"></i>
+              <span>{{ action.label }}</span>
             </button>
           </div>
 
@@ -490,8 +583,8 @@ const resourceLoads = [
     <footer class="statusbar">
       <div class="status-group">
         <span>{{ mapEngineLabel }} · {{ sceneMode === "3d" ? "3D MODE" : "2D MODE" }}</span>
-        <span>WGS 84</span>
-        <span>OSM TILE</span>
+        <span>CGCS2000</span>
+        <span>{{ activeBasemapLabel }}</span>
       </div>
       <div class="status-group">
         <span>静态演示页面</span>
@@ -679,7 +772,8 @@ body,
 
 .content-grid {
   --rail-map-gap: 18px;
-  --map-menu-width: min(302px, calc(100vw - 88px - 4 * var(--rail-map-gap)));
+  --rail-width: 56px;
+  --map-menu-width: min(302px, calc(100vw - 112px - 4 * var(--rail-map-gap)));
 
   flex: 1;
   position: relative;
@@ -693,7 +787,7 @@ body,
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 44px;
+  width: var(--rail-width);
   margin: var(--rail-map-gap);
   z-index: 1;
   pointer-events: auto;
@@ -721,11 +815,14 @@ body,
 
 .rail-button {
   position: relative;
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+  justify-content: center;
+  width: var(--rail-width);
+  height: 56px;
+  padding: 6px 4px;
   border: 1px solid rgba(79, 151, 255, 0.32);
   border-radius: 5px;
   color: var(--text-secondary);
@@ -737,8 +834,14 @@ body,
 }
 
 .rail-button > .bi {
-  font-size: 19px;
+  font-size: 18px;
   line-height: 1;
+}
+
+.rail-button > span {
+  font-size: 11px;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .rail-button:hover,
@@ -752,37 +855,6 @@ body,
 .rail-button:focus-visible {
   outline: 2px solid rgba(72, 229, 255, 0.42);
   outline-offset: 2px;
-}
-
-.rail-button::after {
-  position: absolute;
-  z-index: 5;
-  padding: 5px 8px;
-  border: 1px solid var(--panel-border);
-  border-radius: 3px;
-  color: var(--text-primary);
-  font-size: 11px;
-  line-height: 1;
-  white-space: nowrap;
-  pointer-events: none;
-  content: attr(data-tip);
-  background: rgba(7, 20, 42, 0.96);
-  opacity: 0;
-  transform: translateY(-50%);
-  transition: opacity 120ms ease;
-}
-
-.rail-left .rail-button::after {
-  left: calc(100% + var(--rail-map-gap));
-}
-
-.rail-right .rail-button::after {
-  right: calc(100% + var(--rail-map-gap));
-}
-
-.rail-button:hover::after,
-.rail-button:focus-visible::after {
-  opacity: 1;
 }
 
 .rail-panel {
@@ -953,7 +1025,7 @@ body,
 
   position: absolute;
   top: var(--rail-map-gap);
-  left: calc(44px + 3 * var(--rail-map-gap) + var(--map-menu-width));
+  left: calc(var(--rail-width) + 3 * var(--rail-map-gap) + var(--map-menu-width));
   z-index: 2;
   width: min(220px, calc(100vw - 160px));
   min-width: 0;
@@ -979,6 +1051,108 @@ body,
   height: 16px;
   margin: 0;
   accent-color: var(--cyan);
+}
+
+.basemap-window {
+  --window-padding: 10px;
+  --window-head-padding: 8px;
+  --window-title-size: 13px;
+  --window-tag-size: 9px;
+  --window-close-size: 20px;
+
+  position: absolute;
+  top: var(--rail-map-gap);
+  left: calc(var(--rail-width) + 3 * var(--rail-map-gap) + var(--map-menu-width));
+  z-index: 2;
+  width: min(240px, calc(100vw - 160px));
+  min-width: 0;
+  pointer-events: auto;
+}
+
+.basemap-empty {
+  margin-top: 10px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.basemap-options {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.basemap-option {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  padding: 8px 10px;
+  border: 1px solid var(--panel-inner-line);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  background: rgba(7, 20, 42, 0.55);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 140ms ease,
+    color 140ms ease,
+    background 140ms ease;
+}
+
+.basemap-option:hover,
+.basemap-option:focus-visible {
+  border-color: var(--panel-border);
+  color: var(--text-primary);
+}
+
+.basemap-option:focus-visible {
+  outline: 2px solid rgba(72, 229, 255, 0.42);
+  outline-offset: 1px;
+}
+
+.basemap-option.is-active {
+  border-color: rgba(72, 229, 255, 0.55);
+  color: var(--text-primary);
+  background: rgba(72, 229, 255, 0.08);
+}
+
+.basemap-radio {
+  width: 12px;
+  height: 12px;
+  border: 1px solid var(--panel-border);
+  border-radius: 50%;
+  background: transparent;
+}
+
+.basemap-option.is-active .basemap-radio {
+  border-color: var(--cyan);
+  background: var(--cyan);
+  box-shadow: inset 0 0 0 2px rgba(7, 20, 42, 0.85);
+}
+
+.basemap-meta {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.basemap-meta strong {
+  overflow: hidden;
+  color: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.basemap-meta small {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .metric-grid {
@@ -1259,7 +1433,8 @@ body,
     display: none;
   }
 
-  .terrain-scale-window {
+  .terrain-scale-window,
+  .basemap-window {
     position: relative;
     top: auto;
     right: auto;
@@ -1287,10 +1462,6 @@ body,
   .rail-actions {
     flex: 0 0 auto;
     flex-direction: row;
-  }
-
-  .rail-button::after {
-    display: none;
   }
 
   .rail-panel {
@@ -1335,8 +1506,8 @@ body,
   }
 
   .rail-button {
-    width: 42px;
-    height: 42px;
+    width: 50px;
+    height: 48px;
   }
 }
 </style>

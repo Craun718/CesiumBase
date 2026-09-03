@@ -1,6 +1,8 @@
 import * as Cesium from "cesium"
 
-export function createViewer(container: HTMLElement) {
+export async function createViewer(container: HTMLElement) {
+  await Cesium.GroundPrimitive.initializeTerrainHeights()
+
   const imageryProvider = new Cesium.OpenStreetMapImageryProvider({
     url: "https://tile.openstreetmap.org/",
   })
