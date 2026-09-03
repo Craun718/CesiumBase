@@ -1,16 +1,26 @@
 import type * as Cesium from "cesium"
-import { findCesiumImagerySource, type CesiumImagerySource } from "./imagerySources"
+import {
+  CUSTOM_IMAGERY_SOURCE_ID,
+  createCustomCesiumImagerySource,
+  findCesiumImagerySource,
+  type CesiumImagerySource,
+} from "./imagerySources"
 
 /**
- * 在 Viewer 上记录当前已应用的基底图层集合。
+ * 基底图层当前状态。
  * 使用 WeakMap 避免与 Viewer 生命周期耦合（Viewer 销毁时自动释放）。
  */
-const viewerBaseLayers = new WeakMap<Cesium.Viewer, Cesium.ImageryLayer[]>()
+interface ViewerBaseState {
+  layers: Cesium.ImageryLayer[]
+  sourceId: string
+  /** 仅自定义 URL 图源存在；用于区分不同 URL 的自定义图源。 */
+  customUrl?: string
+}
+
+const viewerBaseStates = new WeakMap<Cesium.Viewer, ViewerBaseState>()
 
 /**
- * 应用指定图源到 Viewer：移除已有基底图层，按图源工厂创建新图层并插入到最底层。
- *
- * 该函数是幂等的：在基底图层已替换为目标图源时不会重复重建。
+ * 应用指定预置图源到 Viewer：移除已有基底图层，按图源工厂创建新图层并插入到最底层。
  *
  * @returns 是否实际发生替换（false 表示目标 id 与当前一致或无效）。
  */
@@ -22,58 +32,54 @@ export function applyCesiumImagerySource(viewer: Cesium.Viewer, sourceId: string
     return false
   }
 
-  const current = viewerBaseLayers.get(viewer) ?? []
-  const currentId = (
-    current[0] as (Cesium.ImageryLayer & { __baseImagerySourceId?: string }) | undefined
-  )?.__baseImagerySourceId
+  return applyCesiumSourceToViewer(viewer, source)
+}
 
-  if (currentId === source.id) {
+/**
+ * 应用自定义瓦片 URL 图源到 Viewer。
+ *
+ * @returns 是否实际发生替换（false 表示 URL 为空或与当前自定义图源一致）。
+ */
+export function applyCesiumCustomUrlSource(viewer: Cesium.Viewer, url: string): boolean {
+  const trimmedUrl = url.trim()
+
+  if (!trimmedUrl) {
     return false
   }
 
-  // 移除旧基底图层（销毁以释放 GPU 资源）
-  for (const layer of current) {
-    viewer.imageryLayers.remove(layer, true)
-  }
-
-  // 构造新基底图层。Cesium 的 `add` 会将图层追加到最高层；
-  // 为保持基底位于最下层，传入 index = 0。
-  const nextLayers = tagLayersWithSource(source)
-  const collection = viewer.imageryLayers
-
-  for (let i = 0; i < nextLayers.length; i += 1) {
-    collection.add(nextLayers[i], 0)
-  }
-
-  viewerBaseLayers.set(viewer, nextLayers)
-  return true
+  return applyCesiumSourceToViewer(viewer, createCustomCesiumImagerySource(trimmedUrl), trimmedUrl)
 }
 
 /** 获取 Viewer 上当前应用的图源 id；无记录时返回 undefined。 */
 export function getCurrentCesiumImagerySourceId(viewer: Cesium.Viewer): string | undefined {
-  const current = viewerBaseLayers.get(viewer)
-  const first = current?.[0] as
-    | (Cesium.ImageryLayer & { __baseImagerySourceId?: string })
-    | undefined
+  return viewerBaseStates.get(viewer)?.sourceId
+}
 
-  return first?.__baseImagerySourceId
+/** 获取 Viewer 上当前自定义图源的 URL；非自定义图源或未记录时返回 undefined。 */
+export function getCurrentCesiumCustomUrl(viewer: Cesium.Viewer): string | undefined {
+  return viewerBaseStates.get(viewer)?.customUrl
 }
 
 /**
  * 在 Viewer 上注册初始基底图层（仅由 createViewer 调用一次）。
- * 后续切换走 `applyCesiumImagerySource`。
+ * 后续切换走 `applyCesiumImagerySource` / `applyCesiumCustomUrlSource`。
  */
 export function registerInitialBaseLayers(
   viewer: Cesium.Viewer,
   source: CesiumImagerySource,
+  layers: Cesium.ImageryLayer[],
 ): void {
-  if (viewerBaseLayers.has(viewer)) return
+  if (viewerBaseStates.has(viewer)) return
 
-  const layers = tagLayersWithSource(source)
-  viewerBaseLayers.set(viewer, layers)
+  for (const layer of layers) {
+    ;(layer as Cesium.ImageryLayer & { __baseImagerySourceId?: string }).__baseImagerySourceId =
+      source.id
+  }
+
+  viewerBaseStates.set(viewer, { layers, sourceId: source.id })
 }
 
-/** 在图层实例上挂一个内部标记，记录其归属图源 id。 */
+/** 在新建图层实例上挂一个内部标记，记录其归属图源 id。 */
 function tagLayersWithSource(source: CesiumImagerySource): Cesium.ImageryLayer[] {
   return source.createLayers().map((layer) => {
     ;(layer as Cesium.ImageryLayer & { __baseImagerySourceId?: string }).__baseImagerySourceId =
@@ -81,3 +87,40 @@ function tagLayersWithSource(source: CesiumImagerySource): Cesium.ImageryLayer[]
     return layer
   })
 }
+
+/** 把某个图源应用到 Viewer（移除旧基底，插入新基底到最底层）。 */
+function applyCesiumSourceToViewer(
+  viewer: Cesium.Viewer,
+  source: CesiumImagerySource,
+  customUrl?: string,
+): boolean {
+  const current = viewerBaseStates.get(viewer)
+
+  // 目标是同一个图源（预置图源按 id、自定义图源按 id + URL）时视为已应用。
+  if (current && current.sourceId === source.id && current.customUrl === customUrl) {
+    return false
+  }
+
+  // 移除旧基底图层（销毁以释放 GPU 资源）
+  for (const layer of current?.layers ?? []) {
+    viewer.imageryLayers.remove(layer, true)
+  }
+
+  // 构造新基底图层。逆序插入 index = 0，既保持基底组在最下层，
+  // 也保持“底图在前、注记在后”的组内顺序。
+  const nextLayers = tagLayersWithSource(source)
+  const collection = viewer.imageryLayers
+
+  for (let i = nextLayers.length - 1; i >= 0; i -= 1) {
+    collection.add(nextLayers[i], 0)
+  }
+
+  viewerBaseStates.set(viewer, {
+    layers: nextLayers,
+    sourceId: source.id,
+    ...(customUrl === undefined ? {} : { customUrl }),
+  })
+  return true
+}
+
+export { CUSTOM_IMAGERY_SOURCE_ID }

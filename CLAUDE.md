@@ -9,15 +9,34 @@
 
 ## 代理行为准则
 
-- 开发服务器只能由人工启动。LLM 不得通过命令运行 `pnpm dev` / `pnpm dev:deck` / `pnpm preview` / `pnpm preview:deck`。
-- 不得自动 stage 用户未选择的文件；`git commit` / `git push` 之前需用户明确确认。
-- 除非用户明确要求查看历史，否则不要查看文件的旧版内容，一切分析以当前状态为准。
+- 开发服务器只能由人工启动。LLM 不得通过任何命令或脚本运行、重启、代理或变相启动 `pnpm dev` / `pnpm dev:deck` / `pnpm preview` / `pnpm preview:deck`；不得停止或接管用户已启动的开发服务。运行时问题只能基于用户提供的 URL、日志、控制台输出、网络请求信息，或生产构建等显式允许的验证方式排查。
+- 除非用户在当前请求中明确要求或 skill 的流程有实际需求，LLM 不得查看或推断 Git 历史，包括但不限于 `git log`、`git blame`、`git show`、历史 diff、旧提交内容、旧文件版本和分支演变。分析只能以当前工作区状态为准。允许使用 `git status`、`git diff --cached` 和 `git diff` 检查当前未提交状态。
+- 不得读取 `.git` 目录、缓存快照、备份目录或其他工作区副本中的旧版内容来还原、比较或解释当前实现。用户明确要求查看历史时，也只读取其指定的对象。
+- 不得自动 stage 用户未选择的文件；`git commit` 智能处理已经在 stage 里的文件而且必须先展示待提交内容；未经用户明确要求不得 `git push`。
 
 ## 概述
 
 Vue 3 + TypeScript + Vite 的 GIS 大屏（数字态势监控中心），以广西区域为中心，围绕一个共享的地图应用层构建，可选用两个渲染引擎：Cesium 与 deck.gl。
 
 当前只做 Cesium 实现，不做 deck.gl：双引擎架构保留作为骨架，但新功能只往 Cesium 引擎加；deck.gl 引擎仅作最小占位，不投入新工作。
+
+## UI/UX 风格
+
+- 当前界面按深色 GIS 大屏设计：近黑底、半透明深蓝面板、青色作为主强调色，蓝色作为次强调色；告警与错误使用琥珀色和玫红色。文本保持高对比，指标和坐标优先使用等宽字体。
+- 大屏骨架为顶部状态栏、中央全幅地图、底部状态栏；左右操作栏浮在地图上方，面板从操作栏旁边展开。优先使用 `FloatingWindow` 保持统一的内边距、标题、标签、关闭按钮、阴影和毛玻璃效果。
+- 交互遵循“二级菜单 → 功能面板”的层级；命令按钮直接执行，开关和模式用可见的当前状态表达。禁用项要说明原因，悬停、焦点、激活、打开状态必须有明确视觉反馈。
+- 可访问性按现有模式实现：面板使用 `role="region"` 和中文 `aria-label`，菜单用 `aria-expanded` / `aria-controls`，互斥选择用 `role="radiogroup"` / `role="radio"`，开关用 `aria-pressed`，并支持 Escape 关闭面板。
+- 图标统一使用 Bootstrap Icons；界面文案使用中文，标签、状态和模式可用大写英文短标签。面板和控件保持紧凑的小圆角，避免过度装饰、大面积卡片嵌套和影响地图读数的强视觉噪声。
+- 设计令牌集中在 `src/App.vue` 的 Tailwind `@theme` 中，并通过 `:root` 暴露面板、文本和强调色别名。新增界面优先复用这些令牌；组件级状态、布局和修饰样式放在所属组件的 scoped SCSS 中。
+
+## 代码结构
+
+- `src/App.vue` 是大屏外壳，组织顶栏、左右操作栏、浮动面板、底栏和屏幕级 UI 状态；复杂面板尽量拆成 `src/components` 下的独立组件。
+- `src/components` 放通用或界面级组件，例如地图视口、指北针、错误边界、浮窗容器和视角操作面板。组件使用 `<script setup lang="ts">`，显示状态就近维护。
+- `src/map` 是引擎无关层：`types.ts` 定义引擎契约，`mapController.ts` 封装调用和异步挂载保护，`useMapController.ts` 通过 provide/inject 提供实例，`engineProvider.ts` 按构建期模式加载入口。界面层不直接导入 Cesium 或 deck.gl。
+- `src/map/engines/cesium` 是当前唯一重点实现的引擎工作区，按创建 viewer、相机、场景、边界和图源等职责拆分；`src/map/engines/deck` 只保留最小占位。新增地图能力先扩展共享契约，再在 Cesium 引擎实现。
+- `src/stores` 放 Pinia setup store；跨会话数据使用 `localStore` 与 `localStorage`，标签页会话数据使用 `sessionStore` 与 `sessionStorage`。持久化配置由 `pinia-plugin-persistedstate` 处理。
+- 样式入口和全局令牌在 `src/App.vue`；普通 UI 用 scoped SCSS 或 Tailwind，地图引擎生成的 DOM 用引擎目录内的 SCSS 配合 `:deep()` 选择器处理。
 
 ## 命令
 
@@ -83,4 +102,4 @@ Tailwind CSS v4 通过 `@tailwindcss/vite` 加载；其入口（`@import "tailwi
 - Vite 加载 `VITE_` 前缀环境变量，文件查找顺序遵循 Vite 默认（`.env` / `.env.*`）。
 - `.gitignore` 已忽略 `.env` 与 `.env.*`；仅 `.env.example` 入库作为模板。
 - 不得向 `.env.example` 提交任何真实 Key、令牌或机密。
-- 已知变量：`VITE_TIANDITU_KEY`（天地图浏览器端 Key，申请地址 <https://console.tianditu.gov.cn/api/key）、`VITE_MAP_ENGINE`（仅供> UI 标签，模式由 Vite mode 决定）。
+- 已知变量：`VITE_TIANDITU_KEY`（天地图浏览器端 Key，申请地址 <<https://console.tianditu.gov.cn/api/key）、`VITE_CESIUM_ION_ACCESS_TOKEN`（Cesium> ion 访问令牌，用于加载 Cesium World Terrain 地形，申请地址 <https://ion.cesium.com/tokens>）、`VITE_MAP_ENGINE`（仅供 UI 标签，模式由 Vite mode 决定）。

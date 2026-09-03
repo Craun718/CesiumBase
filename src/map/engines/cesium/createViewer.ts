@@ -9,6 +9,8 @@ import { findCesiumImagerySource, DEFAULT_CESIUM_IMAGERY_SOURCE_ID } from "./ima
  * `applyCesiumImagerySource` 在不重建 Viewer 的情况下热切换。
  *
  * 注：天地图 Key（VITE_TIANDITU_KEY）必须在 .env 中配置，否则抛错。
+ * 可选：在 .env 中配置 `VITE_CESIUM_ION_ACCESS_TOKEN` 后会自动加载
+ * Cesium World Terrain 地形（供“地形突出”功能使用），留空则不加载地形。
  */
 export async function createViewer(container: HTMLElement) {
   await Cesium.GroundPrimitive.initializeTerrainHeights()
@@ -22,6 +24,16 @@ export async function createViewer(container: HTMLElement) {
 
   const baseLayers = defaultSource.createLayers()
   const baseLayer = baseLayers[0]
+
+  const ionAccessToken = import.meta.env.VITE_CESIUM_ION_ACCESS_TOKEN?.trim()
+
+  if (ionAccessToken) {
+    Cesium.Ion.defaultAccessToken = ionAccessToken
+  } else {
+    console.warn(
+      "[Cesium] 未配置 VITE_CESIUM_ION_ACCESS_TOKEN，无法加载地形；如需地形请在 .env 中填入 Cesium ion 令牌",
+    )
+  }
 
   const viewer = new Cesium.Viewer(container, {
     animation: false,
@@ -40,16 +52,27 @@ export async function createViewer(container: HTMLElement) {
     contextOptions: {
       webgl: {
         alpha: true,
+        // 允许在截屏回调中直接读取 WebGL 画布，避免渲染缓冲区已被清空。
+        preserveDrawingBuffer: true,
       },
     },
+    ...(ionAccessToken
+      ? {
+          // 请求顶点法线与水波掩膜，让地形细节更丰富
+          terrain: Cesium.Terrain.fromWorldTerrain({
+            requestVertexNormals: true,
+            requestWaterMask: true,
+          }),
+        }
+      : {}),
   })
 
   for (const layer of baseLayers.slice(1)) {
     viewer.imageryLayers.add(layer)
   }
 
-  // 把基底图层（含第一个）登记到 baseImagery 跟踪表，便于后续热切换时整体替换。
-  registerInitialBaseLayers(viewer, defaultSource)
+  // 把已加入 Viewer 的基底图层登记到 baseImagery 跟踪表，便于后续热切换时整体替换。
+  registerInitialBaseLayers(viewer, defaultSource, baseLayers)
 
   return viewer
 }

@@ -1,21 +1,22 @@
 import * as Cesium from "cesium"
 import type { SceneMode } from "../../types"
-import { resetCameraNorth } from "./cameraOperations"
+import { clampCameraHeight, MAX_CAMERA_HEIGHT, MIN_CAMERA_HEIGHT } from "../../cameraLimits"
+import { getGroundCenter, resetCameraNorth } from "./cameraOperations"
 
 // Keep the controller state that was active before north lock was enabled so
 // toggling the feature does not unexpectedly change other camera settings.
 const northLockPreviousRotateState = new WeakMap<Cesium.Viewer, boolean>()
 
-// 相机最远缩放限制（米）：滚轮/右键拖拽缩小到该相机高度后不再远离地表，防止"飞出太空看到整个地球"。
-// 数值与 deck 引擎 DeckMapEngine 的 MIN_ZOOM = 2.5 视野量级对齐：
-//   deck zoom 6 ≈ 广西全省视野（相当于 Cesium 相机高度约 700 km），zoom 每减 1 视野翻倍，
-//   zoom 2.5 比 zoom 6 远 2^3.5 ≈ 11.3 倍，700 km × 11.3 ≈ 7900 km，取整为 8000 km。
-// 该值远大于"回到广西"矩形视图所需相机高度（约 1200 km），setInitialCamera / flyToBounds 不受影响。
-// 不设置 minimumZoomDistance：默认值 1 m 加上默认开启的 enableCollisionDetection 已防止相机穿入地表。
-const MAXIMUM_ZOOM_DISTANCE = 8_000_000
+// 记录待完成的 2D 切换，避免相机飞行途中再次切换时旧回调继续生效。
+const pending2DTransitionTokens = new WeakMap<Cesium.Viewer, object>()
+
+/** 3D 转 2D 前的俯视运镜时长，单位秒。 */
+const SCENE_MORPH_DURATION = 1.2
 
 export function configureScene(viewer: Cesium.Viewer) {
-  viewer.scene.screenSpaceCameraController.maximumZoomDistance = MAXIMUM_ZOOM_DISTANCE
+  updateCameraZoomLimits(viewer)
+  viewer.scene.preUpdate.addEventListener(() => updateCameraZoomLimits(viewer))
+
   viewer.scene.backgroundColor = Cesium.Color.fromCssColorString("#030a18")
   viewer.scene.globe.baseColor = Cesium.Color.fromCssColorString("#081b35")
   viewer.scene.globe.showGroundAtmosphere = true
@@ -40,7 +41,75 @@ export function configureScene(viewer: Cesium.Viewer) {
 }
 
 export function setSceneMode(viewer: Cesium.Viewer, mode: SceneMode) {
-  viewer.scene.mode = mode === "2d" ? Cesium.SceneMode.SCENE2D : Cesium.SceneMode.SCENE3D
+  const sceneMode = mode === "2d" ? Cesium.SceneMode.SCENE2D : Cesium.SceneMode.SCENE3D
+
+  if (viewer.scene.mode === sceneMode) return
+
+  if (mode === "2d") {
+    transitionTo2DWithCameraMove(viewer)
+    return
+  }
+
+  cancelPending2DTransition(viewer)
+  viewer.scene.mode = sceneMode
+}
+
+function transitionTo2DWithCameraMove(viewer: Cesium.Viewer) {
+  // Cesium 零动画切换以相机位置为基准，倾斜视角下屏幕中心会偏移；
+  // 先把当前中心点飞成正上方俯视，再切 2D 可同时获得过渡并保持视野中心。
+  const groundCenter = getGroundCenter(viewer)
+
+  if (!groundCenter) {
+    cancelPending2DTransition(viewer)
+    viewer.scene.mode = Cesium.SceneMode.SCENE2D
+    return
+  }
+
+  cancelPending2DTransition(viewer)
+  const token = {}
+  pending2DTransitionTokens.set(viewer, token)
+  const viewHeight = clampCameraHeight(viewer.camera.positionCartographic.height)
+
+  viewer.camera.flyTo({
+    destination: Cesium.Cartesian3.fromDegrees(
+      Cesium.Math.toDegrees(groundCenter.longitude),
+      Cesium.Math.toDegrees(groundCenter.latitude),
+      viewHeight,
+    ),
+    orientation: {
+      heading: 0,
+      pitch: Cesium.Math.toRadians(-90),
+      roll: 0,
+    },
+    duration: SCENE_MORPH_DURATION,
+    easingFunction: Cesium.EasingFunction.QUADRATIC_IN_OUT,
+    complete: () => {
+      if (pending2DTransitionTokens.get(viewer) !== token) return
+
+      pending2DTransitionTokens.delete(viewer)
+      if (viewer.isDestroyed()) return
+
+      viewer.scene.mode = Cesium.SceneMode.SCENE2D
+
+      viewer.camera.setView({
+        destination: Cesium.Cartesian3.fromDegrees(
+          Cesium.Math.toDegrees(groundCenter.longitude),
+          Cesium.Math.toDegrees(groundCenter.latitude),
+          viewHeight,
+        ),
+      })
+    },
+    cancel: () => {
+      if (pending2DTransitionTokens.get(viewer) === token) {
+        pending2DTransitionTokens.delete(viewer)
+      }
+    },
+  })
+}
+
+function cancelPending2DTransition(viewer: Cesium.Viewer) {
+  pending2DTransitionTokens.delete(viewer)
+  viewer.camera.cancelFlight()
 }
 
 export function setRotateBrowse(_viewer: Cesium.Viewer, _enabled: boolean) {}
@@ -80,4 +149,24 @@ export function setTerrainExaggeration(viewer: Cesium.Viewer, enabled: boolean, 
 
 export function setTerrainExaggerationScale(viewer: Cesium.Viewer, scale: number) {
   viewer.scene.verticalExaggeration = Math.max(scale, 1)
+}
+
+function updateCameraZoomLimits(viewer: Cesium.Viewer) {
+  const controller = viewer.scene.screenSpaceCameraController
+
+  if (viewer.scene.mode !== Cesium.SceneMode.SCENE2D) {
+    controller.minimumZoomDistance = MIN_CAMERA_HEIGHT
+    controller.maximumZoomDistance = MAX_CAMERA_HEIGHT
+    return
+  }
+
+  // 2D 的 zoom distance 使用视口较大边，而相机高度语义是视野宽度。
+  const canvas = viewer.canvas
+  const viewportRatio =
+    canvas.clientWidth > 0 && canvas.clientHeight > 0
+      ? Math.max(1, canvas.clientHeight / canvas.clientWidth)
+      : 1
+
+  controller.minimumZoomDistance = MIN_CAMERA_HEIGHT * viewportRatio
+  controller.maximumZoomDistance = MAX_CAMERA_HEIGHT * viewportRatio
 }

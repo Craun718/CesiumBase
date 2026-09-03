@@ -1,7 +1,26 @@
 import type * as Cesium from "cesium"
-import type { ImagerySource, MapEngine, MapBounds, SceneMode } from "../../types"
+import type {
+  CameraState,
+  ImagerySource,
+  MapCoordinate,
+  MapEngine,
+  MapBounds,
+  SceneMode,
+} from "../../types"
 import { createViewer } from "./createViewer"
-import { flyToBounds, setInitialCamera } from "./cameraOperations"
+import {
+  getCameraHeading,
+  captureScreenshot,
+  flyToCoordinate,
+  flyToBounds,
+  getCameraState,
+  onCameraHeadingChange,
+  onCameraStateChange,
+  resetCameraNorth,
+  setCameraHeading,
+  setCameraState,
+  setInitialCamera,
+} from "./cameraOperations"
 import {
   configureScene,
   setNorthLock,
@@ -10,14 +29,12 @@ import {
   setTerrainExaggeration,
   setTerrainExaggerationScale,
 } from "./sceneOperations"
-import {
-  getCameraHeading,
-  onCameraHeadingChange,
-  resetCameraNorth,
-  setCameraHeading,
-} from "./cameraOperations"
 import { addProvinceBoundaries } from "./provinceBoundaries"
-import { applyCesiumImagerySource, getCurrentCesiumImagerySourceId } from "./baseImagery"
+import {
+  applyCesiumCustomUrlSource,
+  applyCesiumImagerySource,
+  getCurrentCesiumImagerySourceId,
+} from "./baseImagery"
 import { listCesiumImagerySources } from "./imagerySources"
 
 export class CesiumMapEngine implements MapEngine {
@@ -47,6 +64,14 @@ export class CesiumMapEngine implements MapEngine {
 
     if (viewer) {
       flyToBounds(viewer, bounds)
+    }
+  }
+
+  flyToCoordinate(coordinate: MapCoordinate) {
+    const viewer = this.getActiveViewer()
+
+    if (viewer) {
+      flyToCoordinate(viewer, coordinate)
     }
   }
 
@@ -118,6 +143,48 @@ export class CesiumMapEngine implements MapEngine {
     return viewer ? onCameraHeadingChange(viewer, listener) : () => {}
   }
 
+  getCameraState(): CameraState {
+    const viewer = this.getActiveViewer()
+
+    return viewer
+      ? getCameraState(viewer)
+      : { longitude: 108.25, latitude: 23.7, height: 700_000, heading: 0, pitch: -90 }
+  }
+
+  setCameraState(state: Partial<Omit<CameraState, "longitude" | "latitude">>) {
+    const viewer = this.getActiveViewer()
+
+    if (viewer) {
+      setCameraState(viewer, state)
+    }
+  }
+
+  onCameraStateChange(listener: (state: CameraState) => void) {
+    const viewer = this.getActiveViewer()
+
+    return viewer ? onCameraStateChange(viewer, listener) : () => {}
+  }
+
+  async toggleSceneFullscreen() {
+    const container = this.getActiveViewer()?.container
+
+    if (!container) return false
+
+    if (document.fullscreenElement === container) {
+      await document.exitFullscreen()
+      return true
+    }
+
+    await container.requestFullscreen()
+    return true
+  }
+
+  captureScreenshot() {
+    const viewer = this.getActiveViewer()
+
+    return viewer ? captureScreenshot(viewer) : undefined
+  }
+
   listBaseImagerySources(): ImagerySource[] {
     return listCesiumImagerySources()
   }
@@ -132,6 +199,12 @@ export class CesiumMapEngine implements MapEngine {
     const viewer = this.getActiveViewer()
 
     return viewer ? applyCesiumImagerySource(viewer, id) : false
+  }
+
+  setCustomBaseImagerySource(url: string): boolean {
+    const viewer = this.getActiveViewer()
+
+    return viewer ? applyCesiumCustomUrlSource(viewer, url) : false
   }
 
   private getActiveViewer() {

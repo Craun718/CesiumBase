@@ -1,5 +1,13 @@
 import { loadMapEngine } from "./engineProvider"
-import type { ImagerySource, MapBounds, MapEngine, MapEngineLoader, SceneMode } from "./types"
+import type {
+  CameraState,
+  ImagerySource,
+  MapBounds,
+  MapCoordinate,
+  MapEngine,
+  MapEngineLoader,
+  SceneMode,
+} from "./types"
 
 const guangxiBounds: MapBounds = {
   west: 105,
@@ -14,6 +22,8 @@ export class MapController {
   private readonly createEngine: MapEngineLoader
 
   private mountGeneration = 0
+
+  private readonly mountStateListeners = new Set<(ready: boolean) => void>()
 
   constructor(createEngine = loadMapEngine) {
     this.createEngine = createEngine
@@ -30,16 +40,35 @@ export class MapController {
     const engine = createEngine()
     await engine.mount(container)
     this.engine = engine
+    this.notifyMountState(true)
   }
 
   unmount() {
     this.mountGeneration += 1
     this.engine?.unmount()
     this.engine = undefined
+    this.notifyMountState(false)
+  }
+
+  /** 监听引擎挂载/卸载状态；注册时若已挂载会立即以 true 回调一次。 */
+  onMountStateChange(listener: (ready: boolean) => void) {
+    this.mountStateListeners.add(listener)
+
+    if (this.engine) {
+      listener(true)
+    }
+
+    return () => {
+      this.mountStateListeners.delete(listener)
+    }
   }
 
   returnToGuangxi() {
     this.engine?.flyToBounds(guangxiBounds)
+  }
+
+  flyToCoordinate(coordinate: MapCoordinate) {
+    this.engine?.flyToCoordinate(coordinate)
   }
 
   setSceneMode(mode: SceneMode) {
@@ -78,6 +107,34 @@ export class MapController {
     return this.engine?.onCameraHeadingChange(listener) ?? (() => {})
   }
 
+  getCameraState(): CameraState {
+    return (
+      this.engine?.getCameraState() ?? {
+        longitude: 108.25,
+        latitude: 23.7,
+        height: 700_000,
+        heading: 0,
+        pitch: -90,
+      }
+    )
+  }
+
+  setCameraState(state: Partial<Omit<CameraState, "longitude" | "latitude">>) {
+    this.engine?.setCameraState(state)
+  }
+
+  onCameraStateChange(listener: (state: CameraState) => void) {
+    return this.engine?.onCameraStateChange(listener) ?? (() => {})
+  }
+
+  async toggleSceneFullscreen() {
+    return (await this.engine?.toggleSceneFullscreen()) ?? false
+  }
+
+  captureScreenshot() {
+    return this.engine?.captureScreenshot()
+  }
+
   /** 当前引擎支持的图源列表（用于 UI 渲染）。 */
   listBaseImagerySources(): ImagerySource[] {
     return this.engine?.listBaseImagerySources() ?? []
@@ -91,5 +148,16 @@ export class MapController {
   /** 切换激活图源；返回是否实际发生替换。 */
   setBaseImagerySource(id: string): boolean {
     return this.engine?.setBaseImagerySource(id) ?? false
+  }
+
+  /** 通过自定义瓦片 URL 切换激活图源；返回是否实际发生替换。 */
+  setCustomBaseImagerySource(url: string): boolean {
+    return this.engine?.setCustomBaseImagerySource(url) ?? false
+  }
+
+  private notifyMountState(ready: boolean) {
+    for (const listener of this.mountStateListeners) {
+      listener(ready)
+    }
   }
 }
