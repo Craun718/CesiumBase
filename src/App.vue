@@ -1,10 +1,16 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref } from "vue"
+import { computed, onBeforeUnmount, onMounted, ref } from "vue"
 import ErrorBoundary from "./components/ErrorBoundary.vue"
 import MapViewport from "./components/MapViewport.vue"
 import FloatingWindow from "./components/FloatingWindow.vue"
 import ViewOperationsPanel from "./components/ViewOperationsPanel.vue"
-import { mapEngineId, provideMapController, type ImagerySource, type SceneMode } from "./map"
+import {
+  mapEngineId,
+  provideMapController,
+  type CoordinateReadout,
+  type ImagerySource,
+  type SceneMode,
+} from "./map"
 import { useLocalStore } from "./stores"
 
 type LeftPanelId = "overview" | "distribution" | "map"
@@ -41,6 +47,8 @@ const CUSTOM_BASEMAP_ID = "custom"
 const customBaseMapUrlInput = ref<string>(localStore.customBaseMapUrl)
 const mapController = provideMapController()
 let disposeMountState: (() => void) | undefined
+let disposeCoordinateReadout: (() => void) | undefined
+const coordinateReadout = ref<CoordinateReadout | undefined>(mapController.getCoordinateReadout())
 
 const activeBasemapLabel = computed(() => {
   const id = activeBasemapId.value
@@ -51,6 +59,26 @@ const activeBasemapLabel = computed(() => {
 })
 
 const mapEngineLabel = mapEngineId === "deck-gl" ? "DECK.GL" : "CESIUM"
+
+const coordinateReadoutText = computed(() => {
+  if (!coordinateReadout.value) {
+    return "经度 -- · 纬度 -- · 高程 --"
+  }
+
+  const { longitude, latitude, height } = coordinateReadout.value
+
+  return `经度 ${longitude.toFixed(5)}° · 纬度 ${latitude.toFixed(5)}° · 高程 ${Math.round(
+    height,
+  )}m`
+})
+
+const coordinateReadoutTitle = computed(() =>
+  !coordinateReadout.value
+    ? "等待地图读数就绪"
+    : coordinateReadout.value.source === "pointer"
+      ? "鼠标位置"
+      : "视图中心",
+)
 
 const leftActions = [
   { id: "overview", label: "态势总览", icon: "bi-speedometer2" },
@@ -372,6 +400,14 @@ disposeMountState = mapController.onMountStateChange((ready) => {
 onBeforeUnmount(() => {
   disposeMountState?.()
   disposeMountState = undefined
+  disposeCoordinateReadout?.()
+  disposeCoordinateReadout = undefined
+})
+
+onMounted(() => {
+  disposeCoordinateReadout = mapController.onCoordinateReadoutChange((readout) => {
+    coordinateReadout.value = readout
+  })
 })
 
 const overviewMetrics = [
@@ -787,10 +823,7 @@ const resourceLoads = [
         <span>{{ mapEngineLabel }} · {{ sceneMode === "3d" ? "3D MODE" : "2D MODE" }}</span>
         <span>CGCS2000</span>
         <span>{{ activeBasemapLabel }}</span>
-      </div>
-      <div class="status-group">
-        <span>静态演示页面</span>
-        <span>无业务数据接入</span>
+        <span :title="coordinateReadoutTitle" aria-live="off">{{ coordinateReadoutText }}</span>
       </div>
     </footer>
   </div>

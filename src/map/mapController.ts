@@ -1,6 +1,7 @@
 import { loadMapEngine } from "./engineProvider"
 import type {
   CameraState,
+  CoordinateReadout,
   ImagerySource,
   MapBounds,
   MapCoordinate,
@@ -22,8 +23,10 @@ export class MapController {
   private readonly createEngine: MapEngineLoader
 
   private mountGeneration = 0
+  private disposeEngineCoordinateReadout?: () => void
 
   private readonly mountStateListeners = new Set<(ready: boolean) => void>()
+  private readonly coordinateReadoutListeners = new Set<(readout: CoordinateReadout) => void>()
 
   constructor(createEngine = loadMapEngine) {
     this.createEngine = createEngine
@@ -40,11 +43,18 @@ export class MapController {
     const engine = createEngine()
     await engine.mount(container)
     this.engine = engine
+    this.disposeEngineCoordinateReadout = engine.onCoordinateReadoutChange((readout) => {
+      for (const listener of this.coordinateReadoutListeners) {
+        listener(readout)
+      }
+    })
     this.notifyMountState(true)
   }
 
   unmount() {
     this.mountGeneration += 1
+    this.disposeEngineCoordinateReadout?.()
+    this.disposeEngineCoordinateReadout = undefined
     this.engine?.unmount()
     this.engine = undefined
     this.notifyMountState(false)
@@ -125,6 +135,26 @@ export class MapController {
 
   onCameraStateChange(listener: (state: CameraState) => void) {
     return this.engine?.onCameraStateChange(listener) ?? (() => {})
+  }
+
+  getCoordinateReadout(): CoordinateReadout | undefined {
+    return this.engine?.getCoordinateReadout()
+  }
+
+  onCoordinateReadoutChange(listener: (readout: CoordinateReadout) => void) {
+    this.coordinateReadoutListeners.add(listener)
+
+    if (this.engine) {
+      const readout = this.engine.getCoordinateReadout()
+
+      if (readout) {
+        listener(readout)
+      }
+    }
+
+    return () => {
+      this.coordinateReadoutListeners.delete(listener)
+    }
   }
 
   async toggleSceneFullscreen() {

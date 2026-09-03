@@ -1,6 +1,7 @@
-import type * as Cesium from "cesium"
+import * as Cesium from "cesium"
 import type {
   CameraState,
+  CoordinateReadout,
   ImagerySource,
   MapCoordinate,
   MapEngine,
@@ -21,6 +22,7 @@ import {
   setCameraState,
   setInitialCamera,
 } from "./cameraOperations"
+import { getPointerReadout, getViewReadout } from "./pointerReadout"
 import {
   configureScene,
   setNorthLock,
@@ -39,6 +41,12 @@ import { listCesiumImagerySources } from "./imagerySources"
 
 export class CesiumMapEngine implements MapEngine {
   private viewer?: Cesium.Viewer
+  private pointerHandler?: Cesium.ScreenSpaceEventHandler
+  private disposePointerReadout?: () => void
+  private coordinateReadout?: CoordinateReadout
+  private lastPointerPosition?: { x: number; y: number }
+  private coordinateReadoutRefreshedAt = 0
+  private readonly coordinateReadoutListeners = new Set<(readout: CoordinateReadout) => void>()
 
   async mount(container: HTMLElement) {
     if (this.viewer) return
@@ -49,14 +57,50 @@ export class CesiumMapEngine implements MapEngine {
     configureScene(viewer)
     setInitialCamera(viewer)
     void addProvinceBoundaries(viewer)
+
+    this.pointerHandler = new Cesium.ScreenSpaceEventHandler(viewer.canvas)
+    this.pointerHandler.setInputAction(({ endPosition }: { endPosition: Cesium.Cartesian2 }) => {
+      this.lastPointerPosition = { x: endPosition.x, y: endPosition.y }
+      this.setCoordinateReadout(getPointerReadout(viewer, endPosition))
+    }, Cesium.ScreenSpaceEventType.MOUSE_MOVE)
+
+    const removeSceneListener = viewer.scene.preRender.addEventListener(() => {
+      const now = performance.now()
+
+      // 读数跟随地形与相机状态变化；鼠标移动仍立即刷新，这里是兜底的节流同步。
+      if (now - this.coordinateReadoutRefreshedAt < 100) return
+
+      this.coordinateReadoutRefreshedAt = now
+      this.refreshCoordinateReadout(viewer)
+    })
+    const handlePointerLeave = () => {
+      this.lastPointerPosition = undefined
+      this.coordinateReadoutRefreshedAt = performance.now()
+      this.setCoordinateReadout(getViewReadout(viewer))
+    }
+    viewer.canvas.addEventListener("pointerleave", handlePointerLeave)
+    this.disposePointerReadout = () => {
+      removeSceneListener()
+      viewer.canvas.removeEventListener("pointerleave", handlePointerLeave)
+    }
+
+    this.refreshCoordinateReadout(viewer)
   }
 
   unmount() {
+    this.disposePointerReadout?.()
+    this.disposePointerReadout = undefined
+    this.pointerHandler?.destroy()
+    this.pointerHandler = undefined
+
     if (this.viewer && !this.viewer.isDestroyed()) {
       this.viewer.destroy()
     }
 
     this.viewer = undefined
+    this.lastPointerPosition = undefined
+    this.coordinateReadout = undefined
+    this.coordinateReadoutListeners.clear()
   }
 
   flyToBounds(bounds: MapBounds) {
@@ -165,6 +209,22 @@ export class CesiumMapEngine implements MapEngine {
     return viewer ? onCameraStateChange(viewer, listener) : () => {}
   }
 
+  getCoordinateReadout(): CoordinateReadout | undefined {
+    return this.coordinateReadout
+  }
+
+  onCoordinateReadoutChange(listener: (readout: CoordinateReadout) => void) {
+    this.coordinateReadoutListeners.add(listener)
+
+    if (this.coordinateReadout) {
+      listener(this.coordinateReadout)
+    }
+
+    return () => {
+      this.coordinateReadoutListeners.delete(listener)
+    }
+  }
+
   async toggleSceneFullscreen() {
     const container = this.getActiveViewer()?.container
 
@@ -213,6 +273,38 @@ export class CesiumMapEngine implements MapEngine {
     }
 
     return undefined
+  }
+
+  private setCoordinateReadout(readout: CoordinateReadout) {
+    const previous = this.coordinateReadout
+    if (
+      previous &&
+      previous.longitude === readout.longitude &&
+      previous.latitude === readout.latitude &&
+      previous.height === readout.height &&
+      previous.source === readout.source
+    ) {
+      return
+    }
+
+    this.coordinateReadout = readout
+
+    for (const listener of this.coordinateReadoutListeners) {
+      listener(readout)
+    }
+  }
+
+  private refreshCoordinateReadout(viewer: Cesium.Viewer) {
+    if (!this.lastPointerPosition) {
+      this.setCoordinateReadout(getViewReadout(viewer))
+      return
+    }
+
+    const pointerPosition = new Cesium.Cartesian2(
+      this.lastPointerPosition.x,
+      this.lastPointerPosition.y,
+    )
+    this.setCoordinateReadout(getPointerReadout(viewer, pointerPosition))
   }
 }
 
