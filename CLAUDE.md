@@ -83,4 +83,4 @@ Tailwind CSS v4 通过 `@tailwindcss/vite` 加载；其入口（`@import "tailwi
 - Vite 加载 `VITE_` 前缀环境变量，文件查找顺序遵循 Vite 默认（`.env` / `.env.*`）。
 - `.gitignore` 已忽略 `.env` 与 `.env.*`；仅 `.env.example` 入库作为模板。
 - 不得向 `.env.example` 提交任何真实 Key、令牌或机密。
-- 已知变量：`VITE_TIANDITU_KEY`（天地图浏览器端 Key，申请地址 <https://console.tianditu.gov.cn/api/key）、`VITE_MAP_ENGINE`（仅供> UI 标签，模式由 Vite mode 决定）。
+- 已知变量：`VITE_TIANDITU_KEY`（天地图浏览器端 Key，申请地址 <https://console.tianditu.gov.cn/api/key）、`VITE_CESIUM_ION_ACCESS_TOKEN`（Cesium ion 访问令牌，用于加载 Cesium World Terrain 地形，申请地址 <https://ion.cesium.com/tokens>）、`VITE_MAP_ENGINE`（仅供 UI 标签，模式由 Vite mode 决定）。
