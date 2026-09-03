@@ -12,8 +12,8 @@ type RightMenuId = "view" | "alerts" | "resources"
 type ViewPanelId = "view-position" | "view-camera"
 type ViewOperationId = ViewPanelId | "view-fullscreen" | "view-screenshot"
 type RightPanelId = ViewPanelId | "alerts" | "resources"
+type RightCommandId = "return-guangxi"
 type MapOperationId =
-  | "return-guangxi"
   | "scene-mode"
   | "rotate-browse"
   | "north-lock"
@@ -64,6 +64,10 @@ const rightActions = [
   { id: "resources", label: "资源负载", icon: "bi-cpu" },
 ] satisfies Array<{ id: RightMenuId; label: string; icon: string }>
 
+const rightCommands = [
+  { id: "return-guangxi", label: "返回广西", icon: "bi-geo-alt" },
+] satisfies Array<{ id: RightCommandId; label: string; icon: string }>
+
 const viewOperations = [
   { id: "view-position", label: "视角定位", icon: "bi-crosshair", kind: "panel" },
   { id: "view-camera", label: "相机参数", icon: "bi-camera-reels", kind: "panel" },
@@ -77,7 +81,6 @@ const viewOperations = [
 }>
 
 const mapOperations = [
-  { id: "return-guangxi", label: "返回广西", icon: "bi-geo-alt", kind: "command" },
   { id: "scene-mode", label: "2D/3D切换", icon: "bi-layers", kind: "mode" },
   { id: "rotate-browse", label: "旋转浏览", icon: "bi-arrow-repeat", kind: "toggle" },
   { id: "north-lock", label: "正北锁定", icon: "bi-compass", kind: "toggle" },
@@ -144,6 +147,12 @@ function toggleRightAction(action: RightMenuId) {
 
   expandedRightMenu.value = action
   activeRightPanel.value = null
+}
+
+function activateRightCommand(commandId: RightCommandId) {
+  if (commandId === "return-guangxi") {
+    mapController.returnToGuangxi()
+  }
 }
 
 function isRightActionActive(action: RightMenuId) {
@@ -233,11 +242,6 @@ function isMapOperationActive(operationId: MapOperationId) {
 
 function activateMapOperation(operationId: MapOperationId) {
   if (isMapOperationDisabled(operationId)) return
-
-  if (operationId === "return-guangxi") {
-    mapController.returnToGuangxi()
-    return
-  }
 
   if (operationId === "scene-mode") {
     const nextMode: SceneMode = sceneMode.value === "3d" ? "2d" : "3d"
@@ -632,6 +636,16 @@ const resourceLoads = [
 
         <aside class="side-rail rail-right" aria-label="右侧操作">
           <div class="rail-actions">
+            <button
+              v-for="command in rightCommands"
+              :key="command.id"
+              class="rail-button"
+              type="button"
+              @click="activateRightCommand(command.id)"
+            >
+              <i class="bi" :class="command.icon" aria-hidden="true"></i>
+              <span>{{ command.label }}</span>
+            </button>
             <button
               v-for="action in rightActions"
               :key="action.id"
