@@ -11,6 +11,9 @@ importers:
       bootstrap-icons:
         specifier: ^1.13.1
         version: 1.13.1
+      cesium:
+        specifier: ^1.144.0
+        version: 1.144.0
       pinia:
         specifier: ^4.0.3
         version: 4.0.3(@vue/devtools-api@8.2.1)(typescript@6.0.3)(vue@3.5.42(typescript@6.0.3))
