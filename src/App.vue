@@ -3,7 +3,7 @@ import { computed, ref } from "vue"
 import ErrorBoundary from "./components/ErrorBoundary.vue"
 import MapViewport from "./components/MapViewport.vue"
 import FloatingWindow from "./components/FloatingWindow.vue"
-import { mapEngineId, provideMapController, type SceneMode } from "./map"
+import { mapEngineId, provideMapController, type ImagerySource, type SceneMode } from "./map"
 
 type LeftPanelId = "overview" | "distribution" | "map"
 type RightPanelId = "alerts" | "resources"
@@ -13,6 +13,7 @@ type MapOperationId =
   | "rotate-browse"
   | "north-lock"
   | "terrain"
+  | "basemap"
   | "compass"
 
 const activeLeftPanel = ref<LeftPanelId | null>(null)
@@ -25,7 +26,18 @@ const northLocked = ref(false)
 const terrainEnabled = ref(false)
 const compassVisible = ref(true)
 const terrainScale = ref(1)
+const basemapOpen = ref(false)
+// 图源列表在打开底图面板时从引擎拉取；激活 id 默认与注册表首项对齐，避免状态栏空白。
+const basemapSources = ref<ImagerySource[]>([])
+const activeBasemapId = ref<string | undefined>("tianditu-img")
 const mapController = provideMapController()
+
+const activeBasemapLabel = computed(() => {
+  const id = activeBasemapId.value
+  if (!id) return "天地图影像"
+  const source = basemapSources.value.find((item) => item.id === id)
+  return source?.label ?? id
+})
 
 const mapEngineLabel = mapEngineId === "deck-gl" ? "DECK.GL" : "CESIUM"
 
@@ -46,6 +58,7 @@ const mapOperations = [
   { id: "rotate-browse", label: "旋转浏览", icon: "bi-arrow-repeat", kind: "toggle" },
   { id: "north-lock", label: "正北锁定", icon: "bi-compass", kind: "toggle" },
   { id: "terrain", label: "地形突出", icon: "bi-mountain", kind: "command" },
+  { id: "basemap", label: "底图切换", icon: "bi-grid-1x2", kind: "command" },
   { id: "compass", label: "显示指北针", icon: "bi-signpost-2", kind: "toggle" },
 ] satisfies Array<{
   id: MapOperationId
@@ -164,10 +177,29 @@ function activateMapOperation(operationId: MapOperationId) {
   }
 
   if (operationId === "terrain") {
+    // 与底图切换互斥：打开地形面板前先关闭底图面板。
+    if (basemapOpen.value) {
+      basemapOpen.value = false
+    }
+
     if (terrainEnabled.value) return
 
     terrainEnabled.value = true
     mapController.setTerrainExaggeration(true, terrainScale.value)
+
+    return
+  }
+
+  if (operationId === "basemap") {
+    // 与地形突出互斥：打开底图面板前先关闭地形面板并回退引擎夸张设置。
+    if (terrainEnabled.value) {
+      terrainEnabled.value = false
+      mapController.setTerrainExaggeration(false, terrainScale.value)
+    }
+
+    if (basemapOpen.value) return
+
+    openBasemapPanel()
 
     return
   }
@@ -191,6 +223,29 @@ function handleTerrainScaleInput(event: Event) {
 function closeTerrainPanel() {
   terrainEnabled.value = false
   mapController.setTerrainExaggeration(false, terrainScale.value)
+}
+
+/** 打开底图面板并同步引擎当前图源列表与激活项；引擎未挂载时静默忽略。 */
+function openBasemapPanel() {
+  const sources = mapController.listBaseImagerySources()
+  if (sources.length > 0) {
+    basemapSources.value = sources
+    activeBasemapId.value = mapController.getBaseImagerySourceId()
+  }
+
+  basemapOpen.value = true
+}
+
+function closeBasemapPanel() {
+  basemapOpen.value = false
+}
+
+/** 切换图源后保留面板，便于连续对比；关闭走面板右上角 X。 */
+function selectBasemap(id: string) {
+  const applied = mapController.setBaseImagerySource(id)
+  if (applied) {
+    activeBasemapId.value = id
+  }
 }
 
 const overviewMetrics = [
@@ -281,7 +336,9 @@ const resourceLoads = [
                 class="submenu-option map-operation"
                 :class="{
                   'is-active': operation.kind === 'toggle' && isMapOperationActive(operation.id),
-                  'is-open': operation.id === 'terrain' && terrainEnabled,
+                  'is-open':
+                    (operation.id === 'terrain' && terrainEnabled) ||
+                    (operation.id === 'basemap' && basemapOpen),
                 }"
                 type="button"
                 :disabled="isMapOperationDisabled(operation.id)"
@@ -375,6 +432,39 @@ const resourceLoads = [
             {{ sceneMode === "3d" ? "三维态势视图" : "二维态势视图" }}
           </span>
         </div>
+
+        <FloatingWindow
+          v-if="basemapOpen"
+          id="basemap-window"
+          class="basemap-window"
+          title="底图切换"
+          tag="BASEMAP"
+          close-label="关闭底图切换"
+          @close="closeBasemapPanel"
+        >
+          <div v-if="basemapSources.length === 0" class="basemap-empty">
+            当前引擎暂无可切换的底图
+          </div>
+          <div v-else class="basemap-options" role="radiogroup" aria-label="底图切换">
+            <button
+              v-for="source in basemapSources"
+              :key="source.id"
+              class="basemap-option"
+              :class="{ 'is-active': source.id === activeBasemapId }"
+              type="button"
+              role="radio"
+              :aria-checked="source.id === activeBasemapId"
+              :title="source.description"
+              @click="selectBasemap(source.id)"
+            >
+              <span class="basemap-radio" aria-hidden="true"></span>
+              <span class="basemap-meta">
+                <strong>{{ source.label }}</strong>
+                <small v-if="source.description">{{ source.description }}</small>
+              </span>
+            </button>
+          </div>
+        </FloatingWindow>
 
         <FloatingWindow
           v-if="terrainEnabled"
@@ -494,7 +584,7 @@ const resourceLoads = [
       <div class="status-group">
         <span>{{ mapEngineLabel }} · {{ sceneMode === "3d" ? "3D MODE" : "2D MODE" }}</span>
         <span>CGCS2000</span>
-        <span>天地图影像</span>
+        <span>{{ activeBasemapLabel }}</span>
       </div>
       <div class="status-group">
         <span>静态演示页面</span>
@@ -984,6 +1074,108 @@ body,
   accent-color: var(--cyan);
 }
 
+.basemap-window {
+  --window-padding: 10px;
+  --window-head-padding: 8px;
+  --window-title-size: 13px;
+  --window-tag-size: 9px;
+  --window-close-size: 20px;
+
+  position: absolute;
+  top: var(--rail-map-gap);
+  left: calc(44px + 3 * var(--rail-map-gap) + var(--map-menu-width));
+  z-index: 2;
+  width: min(240px, calc(100vw - 160px));
+  min-width: 0;
+  pointer-events: auto;
+}
+
+.basemap-empty {
+  margin-top: 10px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.basemap-options {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.basemap-option {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  padding: 8px 10px;
+  border: 1px solid var(--panel-inner-line);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  background: rgba(7, 20, 42, 0.55);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 140ms ease,
+    color 140ms ease,
+    background 140ms ease;
+}
+
+.basemap-option:hover,
+.basemap-option:focus-visible {
+  border-color: var(--panel-border);
+  color: var(--text-primary);
+}
+
+.basemap-option:focus-visible {
+  outline: 2px solid rgba(72, 229, 255, 0.42);
+  outline-offset: 1px;
+}
+
+.basemap-option.is-active {
+  border-color: rgba(72, 229, 255, 0.55);
+  color: var(--text-primary);
+  background: rgba(72, 229, 255, 0.08);
+}
+
+.basemap-radio {
+  width: 12px;
+  height: 12px;
+  border: 1px solid var(--panel-border);
+  border-radius: 50%;
+  background: transparent;
+}
+
+.basemap-option.is-active .basemap-radio {
+  border-color: var(--cyan);
+  background: var(--cyan);
+  box-shadow: inset 0 0 0 2px rgba(7, 20, 42, 0.85);
+}
+
+.basemap-meta {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.basemap-meta strong {
+  overflow: hidden;
+  color: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.basemap-meta small {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .metric-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1262,7 +1454,8 @@ body,
     display: none;
   }
 
-  .terrain-scale-window {
+  .terrain-scale-window,
+  .basemap-window {
     position: relative;
     top: auto;
     right: auto;

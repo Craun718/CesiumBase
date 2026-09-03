@@ -1,5 +1,5 @@
 import { Deck, MapView, type MapViewState } from "@deck.gl/core"
-import type { MapBounds, MapEngine, SceneMode } from "../../types"
+import type { ImagerySource, MapBounds, MapEngine, SceneMode } from "../../types"
 import { createDeckLayers, getDeckTooltip, WebMercatorViewport } from "./layers"
 import { CesiumStyleTerrainController } from "./terrainController"
 
@@ -135,6 +135,19 @@ export class DeckMapEngine implements MapEngine {
     return () => {
       this.headingListeners.delete(listener)
     }
+  }
+
+  listBaseImagerySources(): ImagerySource[] {
+    // deck.gl 占位阶段：底图切换由其自身的图层管线管理；此处返回空数组保持契约兼容。
+    return []
+  }
+
+  getBaseImagerySourceId(): string | undefined {
+    return undefined
+  }
+
+  setBaseImagerySource(_id: string): boolean {
+    return false
   }
 
   private preventContextMenu(event: Event) {
