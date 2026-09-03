@@ -1,7 +1,7 @@
 import * as Cesium from "cesium"
 import type { SceneMode } from "../../types"
 import { MAX_CAMERA_HEIGHT, MIN_CAMERA_HEIGHT } from "../../cameraLimits"
-import { resetCameraNorth, setCameraState } from "./cameraOperations"
+import { getGroundCenter, resetCameraNorth, setCameraState } from "./cameraOperations"
 
 // Keep the controller state that was active before north lock was enabled so
 // toggling the feature does not unexpectedly change other camera settings.
@@ -46,7 +46,27 @@ export function configureScene(viewer: Cesium.Viewer) {
 }
 
 export function setSceneMode(viewer: Cesium.Viewer, mode: SceneMode) {
-  viewer.scene.mode = mode === "2d" ? Cesium.SceneMode.SCENE2D : Cesium.SceneMode.SCENE3D
+  const sceneMode = mode === "2d" ? Cesium.SceneMode.SCENE2D : Cesium.SceneMode.SCENE3D
+
+  if (viewer.scene.mode === sceneMode) return
+
+  // Cesium 零动画切换以相机位置为基准，倾斜视角下屏幕中心会偏移；
+  // 因此切换前记录地面中心，切换后按当前 2D 视野宽度重新定位。
+  const groundCenter = mode === "2d" ? getGroundCenter(viewer) : undefined
+
+  viewer.scene.mode = sceneMode
+
+  if (!groundCenter) return
+
+  const viewHeight = viewer.camera.positionCartographic.height
+
+  viewer.camera.setView({
+    destination: Cesium.Cartesian3.fromDegrees(
+      Cesium.Math.toDegrees(groundCenter.longitude),
+      Cesium.Math.toDegrees(groundCenter.latitude),
+      viewHeight,
+    ),
+  })
 }
 
 export function setRotateBrowse(_viewer: Cesium.Viewer, _enabled: boolean) {}

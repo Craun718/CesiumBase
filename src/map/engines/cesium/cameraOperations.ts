@@ -144,6 +144,31 @@ export function onCameraStateChange(viewer: Cesium.Viewer, listener: (state: Cam
   }
 }
 
+export function getGroundCenter(viewer: Cesium.Viewer) {
+  const canvas = viewer.canvas
+
+  if (canvas.clientWidth === 0 || canvas.clientHeight === 0) return undefined
+
+  const center = new Cesium.Cartesian2(canvas.clientWidth / 2, canvas.clientHeight / 2)
+  const pickRay = viewer.camera.getPickRay(center)
+
+  if (pickRay) {
+    const groundPosition = viewer.scene.globe.pick(pickRay, viewer.scene)
+
+    if (groundPosition) {
+      return Cesium.Cartographic.fromCartesian(groundPosition)
+    }
+  }
+
+  const ellipsoidPosition = viewer.camera.pickEllipsoid(center, viewer.scene.globe.ellipsoid)
+
+  if (ellipsoidPosition) {
+    return Cesium.Cartographic.fromCartesian(ellipsoidPosition)
+  }
+
+  return Cesium.Cartographic.fromCartesian(viewer.camera.positionWC)
+}
+
 export function captureScreenshot(viewer: Cesium.Viewer) {
   try {
     viewer.scene.render()
