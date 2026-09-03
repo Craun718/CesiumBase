@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, ref } from "vue"
+import { computed, onBeforeUnmount, ref } from "vue"
 import ErrorBoundary from "./components/ErrorBoundary.vue"
 import MapViewport from "./components/MapViewport.vue"
 import FloatingWindow from "./components/FloatingWindow.vue"
 import { mapEngineId, provideMapController, type ImagerySource, type SceneMode } from "./map"
+import { useLocalStore } from "./stores"
 
 type LeftPanelId = "overview" | "distribution" | "map"
 type RightPanelId = "alerts" | "resources"
@@ -30,11 +31,17 @@ const basemapOpen = ref(false)
 // 图源列表在打开底图面板时从引擎拉取；激活 id 默认与注册表首项对齐，避免状态栏空白。
 const basemapSources = ref<ImagerySource[]>([])
 const activeBasemapId = ref<string | undefined>("tianditu-img")
+const localStore = useLocalStore()
+const CUSTOM_BASEMAP_ID = "custom"
+// 自定义底图 URL 输入框，初始值来自 localStore（localStorage 持久化）
+const customBaseMapUrlInput = ref<string>(localStore.customBaseMapUrl)
 const mapController = provideMapController()
+let disposeMountState: (() => void) | undefined
 
 const activeBasemapLabel = computed(() => {
   const id = activeBasemapId.value
   if (!id) return "天地图影像"
+  if (id === CUSTOM_BASEMAP_ID) return "自定义 URL"
   const source = basemapSources.value.find((item) => item.id === id)
   return source?.label ?? id
 })
@@ -247,6 +254,40 @@ function selectBasemap(id: string) {
     activeBasemapId.value = id
   }
 }
+
+/** 应用自定义瓦片 URL：写入 localStore 持久化并切换到自定义图源。 */
+function applyCustomBasemap() {
+  const url = customBaseMapUrlInput.value.trim()
+  if (!url) return
+
+  const applied = mapController.setCustomBaseImagerySource(url)
+  if (!applied) return
+
+  localStore.customBaseMapUrl = url
+  activeBasemapId.value = CUSTOM_BASEMAP_ID
+}
+
+/** 引擎挂载完成后，若 localStore 已有自定义 URL 则自动恢复。 */
+function restoreCustomBaseMapUrl() {
+  const url = localStore.customBaseMapUrl.trim()
+  if (!url) return
+
+  const applied = mapController.setCustomBaseImagerySource(url)
+  if (applied) {
+    activeBasemapId.value = CUSTOM_BASEMAP_ID
+  }
+}
+
+disposeMountState = mapController.onMountStateChange((ready) => {
+  if (ready) {
+    restoreCustomBaseMapUrl()
+  }
+})
+
+onBeforeUnmount(() => {
+  disposeMountState?.()
+  disposeMountState = undefined
+})
 
 const overviewMetrics = [
   { label: "监测目标", value: "1,286", trend: "+24" },
@@ -462,6 +503,24 @@ const resourceLoads = [
                 <strong>{{ source.label }}</strong>
                 <small v-if="source.description">{{ source.description }}</small>
               </span>
+            </button>
+          </div>
+          <div class="basemap-custom">
+            <label for="basemap-custom-url">自定义瓦片 URL</label>
+            <input
+              id="basemap-custom-url"
+              v-model="customBaseMapUrlInput"
+              type="text"
+              spellcheck="false"
+              placeholder="https://tile.example.com/{z}/{x}/{y}.png"
+            />
+            <button
+              type="button"
+              class="basemap-custom-apply"
+              :disabled="!customBaseMapUrlInput.trim()"
+              @click="applyCustomBasemap"
+            >
+              应用自定义底图
             </button>
           </div>
         </FloatingWindow>
@@ -1174,6 +1233,66 @@ body,
   line-height: 1.3;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.basemap-custom {
+  display: grid;
+  gap: 7px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--panel-inner-line);
+}
+
+.basemap-custom label {
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.basemap-custom input {
+  width: 100%;
+  min-width: 0;
+  padding: 7px 9px;
+  border: 1px solid var(--panel-inner-line);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 11px;
+  background: rgba(7, 20, 42, 0.55);
+  outline: none;
+  transition: border-color 140ms ease;
+}
+
+.basemap-custom input:focus {
+  border-color: rgba(72, 229, 255, 0.55);
+}
+
+.basemap-custom-apply {
+  padding: 7px 10px;
+  border: 1px solid rgba(72, 229, 255, 0.45);
+  border-radius: 4px;
+  color: var(--cyan);
+  font-size: 12px;
+  background: rgba(72, 229, 255, 0.06);
+  cursor: pointer;
+  transition:
+    border-color 140ms ease,
+    background 140ms ease,
+    color 140ms ease;
+}
+
+.basemap-custom-apply:hover:not(:disabled),
+.basemap-custom-apply:focus-visible {
+  border-color: var(--cyan);
+  color: var(--text-primary);
+  background: rgba(72, 229, 255, 0.14);
+}
+
+.basemap-custom-apply:disabled {
+  border-color: var(--panel-inner-line);
+  color: var(--text-muted);
+  background: rgba(7, 20, 42, 0.35);
+  cursor: not-allowed;
 }
 
 .metric-grid {

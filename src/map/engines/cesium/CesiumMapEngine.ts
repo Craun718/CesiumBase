@@ -17,7 +17,11 @@ import {
   setCameraHeading,
 } from "./cameraOperations"
 import { addProvinceBoundaries } from "./provinceBoundaries"
-import { applyCesiumImagerySource, getCurrentCesiumImagerySourceId } from "./baseImagery"
+import {
+  applyCesiumCustomUrlSource,
+  applyCesiumImagerySource,
+  getCurrentCesiumImagerySourceId,
+} from "./baseImagery"
 import { listCesiumImagerySources } from "./imagerySources"
 
 export class CesiumMapEngine implements MapEngine {
@@ -132,6 +136,12 @@ export class CesiumMapEngine implements MapEngine {
     const viewer = this.getActiveViewer()
 
     return viewer ? applyCesiumImagerySource(viewer, id) : false
+  }
+
+  setCustomBaseImagerySource(url: string): boolean {
+    const viewer = this.getActiveViewer()
+
+    return viewer ? applyCesiumCustomUrlSource(viewer, url) : false
   }
 
   private getActiveViewer() {

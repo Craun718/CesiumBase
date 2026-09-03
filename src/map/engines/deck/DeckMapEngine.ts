@@ -150,6 +150,11 @@ export class DeckMapEngine implements MapEngine {
     return false
   }
 
+  setCustomBaseImagerySource(_url: string): boolean {
+    // deck.gl 占位阶段：暂无自定义瓦片 URL 支持
+    return false
+  }
+
   private preventContextMenu(event: Event) {
     event.preventDefault()
   }

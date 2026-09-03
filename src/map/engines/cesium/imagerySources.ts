@@ -6,6 +6,10 @@ const TIANDITU_KEY = (import.meta.env.VITE_TIANDITU_KEY ?? "").trim()
 
 const TIANDITU_SUBDOMAINS = ["0", "1", "2", "3", "4", "5", "6", "7"]
 const TIANDITU_MAXIMUM_LEVEL = 18
+const DEFAULT_CUSTOM_MAXIMUM_LEVEL = 18
+
+/** 自定义 URL 图源固定 id（用于引擎切换与 UI 状态标识）。 */
+export const CUSTOM_IMAGERY_SOURCE_ID = "custom"
 
 /**
  * 引擎无关的图源描述。引擎负责把描述实例化为真正的图层（如 ImageryLayer）。
@@ -78,6 +82,30 @@ export const DEFAULT_CESIUM_IMAGERY_SOURCE_ID: string = CESIUM_IMAGERY_SOURCES[0
 /** 按 id 查找图源；找不到时返回 undefined。 */
 export function findCesiumImagerySource(id: string): CesiumImagerySource | undefined {
   return CESIUM_IMAGERY_SOURCES.find((source) => source.id === id)
+}
+
+/**
+ * 由用户提供的瓦片 URL 创建自定义图源。
+ *
+ * 支持 XYZ（`{z}/{x}/{y}`）及 WMTS 等 Cesium `UrlTemplateImageryProvider` 支持
+ * 的模板占位符；若 URL 中包含 `{s}` 会自动启用子域轮询。
+ */
+export function createCustomCesiumImagerySource(url: string): CesiumImagerySource {
+  return {
+    id: CUSTOM_IMAGERY_SOURCE_ID,
+    label: "自定义 URL",
+    description: url,
+    createLayers: () => [
+      new Cesium.ImageryLayer(
+        new Cesium.UrlTemplateImageryProvider({
+          url,
+          // 仅当 URL 使用 {s} 时启用子域轮询，避免无谓的网络请求
+          ...(url.includes("{s}") ? { subdomains: "abc" } : {}),
+          maximumLevel: DEFAULT_CUSTOM_MAXIMUM_LEVEL,
+        }),
+      ),
+    ],
+  }
 }
 
 /** 引擎无关的图源列表（用于 UI 与契约）。 */

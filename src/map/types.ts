@@ -50,6 +50,11 @@ export interface MapEngine {
    * 调用方应自行处理"未替换"的反馈（如 toast）。
    */
   setBaseImagerySource(id: string): boolean
+  /**
+   * 通过自定义瓦片 URL 切换激活图源（如 XYZ / WMTS 瓦片服务）。
+   * 返回是否实际发生替换（false 表示 URL 为空、格式无效或与当前自定义图源一致）。
+   */
+  setCustomBaseImagerySource(url: string): boolean
 }
 
 export type MapEngineFactory = () => MapEngine

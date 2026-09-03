@@ -15,6 +15,8 @@ export class MapController {
 
   private mountGeneration = 0
 
+  private readonly mountStateListeners = new Set<(ready: boolean) => void>()
+
   constructor(createEngine = loadMapEngine) {
     this.createEngine = createEngine
   }
@@ -30,12 +32,27 @@ export class MapController {
     const engine = createEngine()
     await engine.mount(container)
     this.engine = engine
+    this.notifyMountState(true)
   }
 
   unmount() {
     this.mountGeneration += 1
     this.engine?.unmount()
     this.engine = undefined
+    this.notifyMountState(false)
+  }
+
+  /** 监听引擎挂载/卸载状态；注册时若已挂载会立即以 true 回调一次。 */
+  onMountStateChange(listener: (ready: boolean) => void) {
+    this.mountStateListeners.add(listener)
+
+    if (this.engine) {
+      listener(true)
+    }
+
+    return () => {
+      this.mountStateListeners.delete(listener)
+    }
   }
 
   returnToGuangxi() {
@@ -91,5 +108,16 @@ export class MapController {
   /** 切换激活图源；返回是否实际发生替换。 */
   setBaseImagerySource(id: string): boolean {
     return this.engine?.setBaseImagerySource(id) ?? false
+  }
+
+  /** 通过自定义瓦片 URL 切换激活图源；返回是否实际发生替换。 */
+  setCustomBaseImagerySource(url: string): boolean {
+    return this.engine?.setCustomBaseImagerySource(url) ?? false
+  }
+
+  private notifyMountState(ready: boolean) {
+    for (const listener of this.mountStateListeners) {
+      listener(ready)
+    }
   }
 }
