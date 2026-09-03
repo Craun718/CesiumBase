@@ -49,6 +49,21 @@ function createTiandituUrlTemplate(
   })
 }
 
+/** 天地图 DataServer XYZ 瓦片（w = Web 墨卡托投影）。 */
+function createTiandituDataServerTemplate(
+  layer: "vec_w" | "cva_w",
+): Cesium.UrlTemplateImageryProvider {
+  return new Cesium.UrlTemplateImageryProvider({
+    url:
+      "https://t{s}.tianditu.gov.cn/DataServer?T=" +
+      layer +
+      "&x={x}&y={y}&l={z}&tk=" +
+      TIANDITU_KEY,
+    subdomains: TIANDITU_SUBDOMAINS,
+    maximumLevel: TIANDITU_MAXIMUM_LEVEL,
+  })
+}
+
 /**
  * 当前可用的图源注册表。后续接入新图源（如 OSM、高德、CGCS2000 离线瓦片等），
  * 只需在此数组追加即可；UI 与引擎会自动识别。
@@ -68,10 +83,10 @@ export const CESIUM_IMAGERY_SOURCES: readonly CesiumImagerySource[] = [
   {
     id: "tianditu-vec",
     label: "天地图矢量",
-    description: "天地图 WMTS 矢量底图 + 注记",
+    description: "天地图 XYZ 矢量底图 + 注记",
     createLayers: () => [
-      new Cesium.ImageryLayer(createTiandituUrlTemplate("vec")),
-      new Cesium.ImageryLayer(createTiandituUrlTemplate("cva")),
+      new Cesium.ImageryLayer(createTiandituDataServerTemplate("vec_w")),
+      new Cesium.ImageryLayer(createTiandituDataServerTemplate("cva_w")),
     ],
   },
 ] as const

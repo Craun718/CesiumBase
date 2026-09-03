@@ -69,8 +69,8 @@ export async function createViewer(container: HTMLElement) {
     viewer.imageryLayers.add(layer)
   }
 
-  // 把基底图层（含第一个）登记到 baseImagery 跟踪表，便于后续热切换时整体替换。
-  registerInitialBaseLayers(viewer, defaultSource)
+  // 把已加入 Viewer 的基底图层登记到 baseImagery 跟踪表，便于后续热切换时整体替换。
+  registerInitialBaseLayers(viewer, defaultSource, baseLayers)
 
   return viewer
 }

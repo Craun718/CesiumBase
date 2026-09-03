@@ -67,14 +67,19 @@ export function getCurrentCesiumCustomUrl(viewer: Cesium.Viewer): string | undef
 export function registerInitialBaseLayers(
   viewer: Cesium.Viewer,
   source: CesiumImagerySource,
+  layers: Cesium.ImageryLayer[],
 ): void {
   if (viewerBaseStates.has(viewer)) return
 
-  const layers = tagLayersWithSource(source)
+  for (const layer of layers) {
+    ;(layer as Cesium.ImageryLayer & { __baseImagerySourceId?: string }).__baseImagerySourceId =
+      source.id
+  }
+
   viewerBaseStates.set(viewer, { layers, sourceId: source.id })
 }
 
-/** 在图层实例上挂一个内部标记，记录其归属图源 id。 */
+/** 在新建图层实例上挂一个内部标记，记录其归属图源 id。 */
 function tagLayersWithSource(source: CesiumImagerySource): Cesium.ImageryLayer[] {
   return source.createLayers().map((layer) => {
     ;(layer as Cesium.ImageryLayer & { __baseImagerySourceId?: string }).__baseImagerySourceId =
@@ -101,12 +106,12 @@ function applyCesiumSourceToViewer(
     viewer.imageryLayers.remove(layer, true)
   }
 
-  // 构造新基底图层。Cesium 的 `add` 会将图层追加到最高层；
-  // 为保持基底位于最下层，传入 index = 0。
+  // 构造新基底图层。逆序插入 index = 0，既保持基底组在最下层，
+  // 也保持“底图在前、注记在后”的组内顺序。
   const nextLayers = tagLayersWithSource(source)
   const collection = viewer.imageryLayers
 
-  for (let i = 0; i < nextLayers.length; i += 1) {
+  for (let i = nextLayers.length - 1; i >= 0; i -= 1) {
     collection.add(nextLayers[i], 0)
   }
 

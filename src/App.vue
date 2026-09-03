@@ -7,7 +7,7 @@ import { mapEngineId, provideMapController, type ImagerySource, type SceneMode }
 import { useLocalStore } from "./stores"
 
 type LeftPanelId = "overview" | "distribution" | "map"
-type RightPanelId = "alerts" | "resources"
+type RightPanelId = "alerts" | "resources" | "view"
 type MapOperationId =
   | "return-guangxi"
   | "scene-mode"
@@ -55,6 +55,7 @@ const leftActions = [
 ] satisfies Array<{ id: LeftPanelId; label: string; icon: string }>
 
 const rightActions = [
+  { id: "view", label: "视角操作", icon: "bi-eye" },
   { id: "alerts", label: "实时告警", icon: "bi-bell" },
   { id: "resources", label: "资源负载", icon: "bi-cpu" },
 ] satisfies Array<{ id: RightPanelId; label: string; icon: string }>
@@ -78,9 +79,20 @@ const expandedLeftAction = computed(
   () => leftActions.find((action) => action.id === expandedLeftMenu.value) ?? null,
 )
 
-const expandedRightAction = computed(
-  () => rightActions.find((action) => action.id === expandedRightMenu.value) ?? null,
-)
+const expandedRightAction = computed(() => {
+  const action = rightActions.find((item) => item.id === expandedRightMenu.value) ?? null
+  // 视角操作有自己的专用面板，不进入通用二级菜单流程。
+  return action?.id === "view" ? null : action
+})
+
+const VIEW_OPERATION_IDS = new Set<MapOperationId>([
+  "return-guangxi",
+  "scene-mode",
+  "rotate-browse",
+  "north-lock",
+  "compass",
+])
+const viewOperations = mapOperations.filter((operation) => VIEW_OPERATION_IDS.has(operation.id))
 
 function toggleLeftPanel(panel: LeftPanelId) {
   if (panel === "map") {
@@ -590,6 +602,48 @@ const resourceLoads = [
               <span>{{ expandedRightAction.label }}</span>
               <i class="bi bi-chevron-right submenu-chevron" aria-hidden="true"></i>
             </button>
+          </FloatingWindow>
+
+          <FloatingWindow
+            v-if="activeRightPanel === 'view'"
+            id="right-view-panel"
+            class="rail-panel panel-right"
+            title="视角操作"
+            tag="VIEW"
+            close-label="关闭视角操作"
+            @close="closeRightPanel"
+          >
+            <div class="map-operation-list">
+              <button
+                v-for="operation in viewOperations"
+                :key="operation.id"
+                class="submenu-option map-operation"
+                :class="{
+                  'is-active': operation.kind === 'toggle' && isMapOperationActive(operation.id),
+                }"
+                type="button"
+                :disabled="isMapOperationDisabled(operation.id)"
+                :aria-pressed="
+                  operation.kind === 'toggle' ? isMapOperationActive(operation.id) : undefined
+                "
+                :title="isMapOperationDisabled(operation.id) ? '仅3D模式可用' : undefined"
+                @click="activateMapOperation(operation.id)"
+              >
+                <i class="bi" :class="operation.icon" aria-hidden="true"></i>
+                <span>{{ operation.label }}</span>
+                <i
+                  v-if="operation.kind === 'command'"
+                  class="bi bi-chevron-right submenu-chevron"
+                  aria-hidden="true"
+                ></i>
+                <span v-else-if="operation.kind === 'mode'" class="operation-mode">
+                  {{ sceneMode.toUpperCase() }}
+                </span>
+                <span v-else class="operation-switch" aria-hidden="true">
+                  <span class="operation-switch-thumb"></span>
+                </span>
+              </button>
+            </div>
           </FloatingWindow>
 
           <FloatingWindow
