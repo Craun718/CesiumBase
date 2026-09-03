@@ -353,10 +353,10 @@ const resourceLoads = [
               :aria-controls="
                 expandedLeftMenu === action.id ? 'left-secondary-menu' : `left-${action.id}-panel`
               "
-              :data-tip="action.label"
               @click="toggleLeftPanel(action.id)"
             >
               <i class="bi" :class="action.icon" aria-hidden="true"></i>
+              <span>{{ action.label }}</span>
             </button>
           </div>
 
@@ -565,10 +565,10 @@ const resourceLoads = [
                   ? 'right-secondary-menu'
                   : `right-${action.id}-panel`
               "
-              :data-tip="action.label"
               @click="toggleRightPanel(action.id)"
             >
               <i class="bi" :class="action.icon" aria-hidden="true"></i>
+              <span>{{ action.label }}</span>
             </button>
           </div>
 
@@ -831,7 +831,8 @@ body,
 
 .content-grid {
   --rail-map-gap: 18px;
-  --map-menu-width: min(302px, calc(100vw - 88px - 4 * var(--rail-map-gap)));
+  --rail-width: 56px;
+  --map-menu-width: min(302px, calc(100vw - 112px - 4 * var(--rail-map-gap)));
 
   flex: 1;
   position: relative;
@@ -845,7 +846,7 @@ body,
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 44px;
+  width: var(--rail-width);
   margin: var(--rail-map-gap);
   z-index: 1;
   pointer-events: auto;
@@ -873,11 +874,14 @@ body,
 
 .rail-button {
   position: relative;
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+  justify-content: center;
+  width: var(--rail-width);
+  height: 56px;
+  padding: 6px 4px;
   border: 1px solid rgba(79, 151, 255, 0.32);
   border-radius: 5px;
   color: var(--text-secondary);
@@ -889,8 +893,14 @@ body,
 }
 
 .rail-button > .bi {
-  font-size: 19px;
+  font-size: 18px;
   line-height: 1;
+}
+
+.rail-button > span {
+  font-size: 11px;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .rail-button:hover,
@@ -904,37 +914,6 @@ body,
 .rail-button:focus-visible {
   outline: 2px solid rgba(72, 229, 255, 0.42);
   outline-offset: 2px;
-}
-
-.rail-button::after {
-  position: absolute;
-  z-index: 5;
-  padding: 5px 8px;
-  border: 1px solid var(--panel-border);
-  border-radius: 3px;
-  color: var(--text-primary);
-  font-size: 11px;
-  line-height: 1;
-  white-space: nowrap;
-  pointer-events: none;
-  content: attr(data-tip);
-  background: rgba(7, 20, 42, 0.96);
-  opacity: 0;
-  transform: translateY(-50%);
-  transition: opacity 120ms ease;
-}
-
-.rail-left .rail-button::after {
-  left: calc(100% + var(--rail-map-gap));
-}
-
-.rail-right .rail-button::after {
-  right: calc(100% + var(--rail-map-gap));
-}
-
-.rail-button:hover::after,
-.rail-button:focus-visible::after {
-  opacity: 1;
 }
 
 .rail-panel {
@@ -1105,7 +1084,7 @@ body,
 
   position: absolute;
   top: var(--rail-map-gap);
-  left: calc(44px + 3 * var(--rail-map-gap) + var(--map-menu-width));
+  left: calc(var(--rail-width) + 3 * var(--rail-map-gap) + var(--map-menu-width));
   z-index: 2;
   width: min(220px, calc(100vw - 160px));
   min-width: 0;
@@ -1142,7 +1121,7 @@ body,
 
   position: absolute;
   top: var(--rail-map-gap);
-  left: calc(44px + 3 * var(--rail-map-gap) + var(--map-menu-width));
+  left: calc(var(--rail-width) + 3 * var(--rail-map-gap) + var(--map-menu-width));
   z-index: 2;
   width: min(240px, calc(100vw - 160px));
   min-width: 0;
@@ -1604,10 +1583,6 @@ body,
     flex-direction: row;
   }
 
-  .rail-button::after {
-    display: none;
-  }
-
   .rail-panel {
     position: relative;
     flex-basis: 100%;
@@ -1650,8 +1625,8 @@ body,
   }
 
   .rail-button {
-    width: 42px;
-    height: 42px;
+    width: 50px;
+    height: 48px;
   }
 }
 </style>
