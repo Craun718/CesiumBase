@@ -11,6 +11,7 @@
 
 - 开发服务器只能由人工启动。LLM 不得通过命令运行 `pnpm dev` / `pnpm dev:deck` / `pnpm preview` / `pnpm preview:deck`。
 - 不得自动 stage 用户未选择的文件；`git commit` / `git push` 之前需用户明确确认。
+- 除非用户明确要求查看历史，否则不要查看文件的旧版内容，一切分析以当前状态为准。
 
 ## 概述
 
