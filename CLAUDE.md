@@ -9,9 +9,10 @@
 
 ## 代理行为准则
 
-- 开发服务器只能由人工启动。LLM 不得通过命令运行 `pnpm dev` / `pnpm dev:deck` / `pnpm preview` / `pnpm preview:deck`。
-- 不得自动 stage 用户未选择的文件；`git commit` / `git push` 之前需用户明确确认。
-- 除非用户明确要求查看历史，否则不要查看文件的旧版内容，一切分析以当前状态为准。
+- 开发服务器只能由人工启动。LLM 不得通过任何命令或脚本运行、重启、代理或变相启动 `pnpm dev` / `pnpm dev:deck` / `pnpm preview` / `pnpm preview:deck`；不得停止或接管用户已启动的开发服务。运行时问题只能基于用户提供的 URL、日志、控制台输出、网络请求信息，或生产构建等显式允许的验证方式排查。
+- 除非用户在当前请求中明确要求或 skill 的流程有实际需求，LLM 不得查看或推断 Git 历史，包括但不限于 `git log`、`git blame`、`git show`、历史 diff、旧提交内容、旧文件版本和分支演变。分析只能以当前工作区状态为准。允许使用 `git status`、`git diff --cached` 和 `git diff` 检查当前未提交状态。
+- 不得读取 `.git` 目录、缓存快照、备份目录或其他工作区副本中的旧版内容来还原、比较或解释当前实现。用户明确要求查看历史时，也只读取其指定的对象。
+- 不得自动 stage 用户未选择的文件；`git commit` 智能处理已经在 stage 里的文件而且必须先展示待提交内容；未经用户明确要求不得 `git push`。
 
 ## 概述
 
@@ -83,4 +84,4 @@ Tailwind CSS v4 通过 `@tailwindcss/vite` 加载；其入口（`@import "tailwi
 - Vite 加载 `VITE_` 前缀环境变量，文件查找顺序遵循 Vite 默认（`.env` / `.env.*`）。
 - `.gitignore` 已忽略 `.env` 与 `.env.*`；仅 `.env.example` 入库作为模板。
 - 不得向 `.env.example` 提交任何真实 Key、令牌或机密。
-- 已知变量：`VITE_TIANDITU_KEY`（天地图浏览器端 Key，申请地址 <https://console.tianditu.gov.cn/api/key）、`VITE_CESIUM_ION_ACCESS_TOKEN`（Cesium ion 访问令牌，用于加载 Cesium World Terrain 地形，申请地址 <https://ion.cesium.com/tokens>）、`VITE_MAP_ENGINE`（仅供 UI 标签，模式由 Vite mode 决定）。
+- 已知变量：`VITE_TIANDITU_KEY`（天地图浏览器端 Key，申请地址 <<https://console.tianditu.gov.cn/api/key）、`VITE_CESIUM_ION_ACCESS_TOKEN`（Cesium> ion 访问令牌，用于加载 Cesium World Terrain 地形，申请地址 <https://ion.cesium.com/tokens>）、`VITE_MAP_ENGINE`（仅供 UI 标签，模式由 Vite mode 决定）。
