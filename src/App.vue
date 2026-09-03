@@ -29,12 +29,12 @@ const terrainScale = ref(1)
 const basemapOpen = ref(false)
 // 图源列表在打开底图面板时从引擎拉取；激活 id 默认与注册表首项对齐，避免状态栏空白。
 const basemapSources = ref<ImagerySource[]>([])
-const activeBasemapId = ref<string | undefined>("tianditu-img")
+const activeBasemapId = ref<string | undefined>("osm")
 const mapController = provideMapController()
 
 const activeBasemapLabel = computed(() => {
   const id = activeBasemapId.value
-  if (!id) return "天地图影像"
+  if (!id) return "OpenStreetMap"
   const source = basemapSources.value.find((item) => item.id === id)
   return source?.label ?? id
 })

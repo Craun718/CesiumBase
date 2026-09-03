@@ -132,6 +132,18 @@ export class DeckMapEngine implements MapEngine {
     }
   }
 
+  listBaseImagerySources() {
+    return []
+  }
+
+  getBaseImagerySourceId() {
+    return undefined
+  }
+
+  setBaseImagerySource(_id: string) {
+    return false
+  }
+
   private createDeck() {
     return new Deck<MapView>({
       parent: this.container as HTMLDivElement,

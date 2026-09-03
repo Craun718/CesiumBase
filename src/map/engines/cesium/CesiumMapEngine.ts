@@ -1,5 +1,5 @@
 import type * as Cesium from "cesium"
-import type { MapEngine, MapBounds, SceneMode } from "../../types"
+import type { ImagerySource, MapEngine, MapBounds, SceneMode } from "../../types"
 import { createViewer } from "./createViewer"
 import { flyToBounds, setInitialCamera } from "./cameraOperations"
 import {
@@ -20,6 +20,14 @@ import { addProvinceBoundaries } from "./provinceBoundaries"
 
 export class CesiumMapEngine implements MapEngine {
   private viewer?: Cesium.Viewer
+
+  private static readonly baseImagerySources: ImagerySource[] = [
+    {
+      id: "osm",
+      label: "OpenStreetMap",
+      description: "全球开源瓦片底图",
+    },
+  ]
 
   async mount(container: HTMLElement) {
     if (this.viewer) return
@@ -114,6 +122,19 @@ export class CesiumMapEngine implements MapEngine {
     const viewer = this.getActiveViewer()
 
     return viewer ? onCameraHeadingChange(viewer, listener) : () => {}
+  }
+
+  listBaseImagerySources() {
+    return CesiumMapEngine.baseImagerySources
+  }
+
+  getBaseImagerySourceId() {
+    return this.getActiveViewer() ? "osm" : undefined
+  }
+
+  setBaseImagerySource(_id: string) {
+    // 当前只注册一个图源，重复选择不需要重建图层。
+    return false
   }
 
   private getActiveViewer() {
