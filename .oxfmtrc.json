@@ -6,5 +6,5 @@
   "jsxSingleQuote": false,
   "semi": false,
   "sortPackageJson": false,
-  "ignorePatterns": ["/tsconfig.json"]
+  "ignorePatterns": ["/tsconfig.json", "**/*.geojson", "/public/vector/**"]
 }

@@ -1,5 +1,5 @@
 import type * as Cesium from "cesium"
-import type { MapEngine, MapBounds, SceneMode } from "../../types"
+import type { ImagerySource, MapEngine, MapBounds, SceneMode } from "../../types"
 import { createViewer } from "./createViewer"
 import { flyToBounds, setInitialCamera } from "./cameraOperations"
 import {
@@ -17,6 +17,8 @@ import {
   setCameraHeading,
 } from "./cameraOperations"
 import { addProvinceBoundaries } from "./provinceBoundaries"
+import { applyCesiumImagerySource, getCurrentCesiumImagerySourceId } from "./baseImagery"
+import { listCesiumImagerySources } from "./imagerySources"
 
 export class CesiumMapEngine implements MapEngine {
   private viewer?: Cesium.Viewer
@@ -114,6 +116,22 @@ export class CesiumMapEngine implements MapEngine {
     const viewer = this.getActiveViewer()
 
     return viewer ? onCameraHeadingChange(viewer, listener) : () => {}
+  }
+
+  listBaseImagerySources(): ImagerySource[] {
+    return listCesiumImagerySources()
+  }
+
+  getBaseImagerySourceId(): string | undefined {
+    const viewer = this.getActiveViewer()
+
+    return viewer ? getCurrentCesiumImagerySourceId(viewer) : undefined
+  }
+
+  setBaseImagerySource(id: string): boolean {
+    const viewer = this.getActiveViewer()
+
+    return viewer ? applyCesiumImagerySource(viewer, id) : false
   }
 
   private getActiveViewer() {
