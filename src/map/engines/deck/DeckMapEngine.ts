@@ -1,6 +1,7 @@
 import { Deck, MapView, type MapViewState } from "@deck.gl/core"
 import type {
   CameraState,
+  CoordinateReadout,
   ImagerySource,
   MapBounds,
   MapCoordinate,
@@ -43,6 +44,7 @@ export class DeckMapEngine implements MapEngine {
   private terrainScale = 1
   private readonly headingListeners = new Set<(heading: number) => void>()
   private readonly cameraStateListeners = new Set<(state: CameraState) => void>()
+  private readonly coordinateReadoutListeners = new Set<(readout: CoordinateReadout) => void>()
 
   mount(container: HTMLElement) {
     if (this.deck) return
@@ -82,6 +84,7 @@ export class DeckMapEngine implements MapEngine {
     this.deck = undefined
     this.headingListeners.clear()
     this.cameraStateListeners.clear()
+    this.coordinateReadoutListeners.clear()
   }
 
   flyToBounds(bounds: MapBounds) {
@@ -185,6 +188,26 @@ export class DeckMapEngine implements MapEngine {
     }
   }
 
+  getCoordinateReadout(): CoordinateReadout {
+    const state = this.getCameraState()
+
+    return {
+      longitude: state.longitude,
+      latitude: state.latitude,
+      height: state.height,
+      source: "view",
+    }
+  }
+
+  onCoordinateReadoutChange(listener: (readout: CoordinateReadout) => void) {
+    this.coordinateReadoutListeners.add(listener)
+    listener(this.getCoordinateReadout())
+
+    return () => {
+      this.coordinateReadoutListeners.delete(listener)
+    }
+  }
+
   async toggleSceneFullscreen() {
     if (!this.container) return false
 
@@ -265,6 +288,10 @@ export class DeckMapEngine implements MapEngine {
 
     for (const listener of this.cameraStateListeners) {
       listener(this.getCameraState())
+    }
+
+    for (const listener of this.coordinateReadoutListeners) {
+      listener(this.getCoordinateReadout())
     }
   }
 }

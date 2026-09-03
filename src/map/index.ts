@@ -4,6 +4,7 @@ export { clampCameraHeight, MAX_CAMERA_HEIGHT, MIN_CAMERA_HEIGHT } from "./camer
 export { provideMapController, useMapController } from "./useMapController"
 export type {
   CameraState,
+  CoordinateReadout,
   ImagerySource,
   MapBounds,
   MapEngine,

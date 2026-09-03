@@ -24,6 +24,14 @@ export interface MapCoordinate {
   readonly latitude: number
 }
 
+/** 状态栏坐标读数；pointer 表示鼠标命中地球，view 表示显示视图中心。 */
+export interface CoordinateReadout {
+  readonly longitude: number
+  readonly latitude: number
+  readonly height: number
+  readonly source: "pointer" | "view"
+}
+
 /**
  * 引擎无关的图源描述。
  *
@@ -60,6 +68,10 @@ export interface MapEngine {
   setCameraState(state: Partial<Omit<CameraState, "longitude" | "latitude">>): void
   /** 监听相机参数变化，返回取消监听函数。 */
   onCameraStateChange(listener: (state: CameraState) => void): () => void
+  /** 读取状态栏坐标读数；地图尚未就绪时返回 undefined。 */
+  getCoordinateReadout(): CoordinateReadout | undefined
+  /** 监听坐标读数变化；鼠标离开地图或未命中地球时回落到视图中心。 */
+  onCoordinateReadoutChange(listener: (readout: CoordinateReadout) => void): () => void
   /** 在地图容器与浏览器全屏状态间切换；返回是否实际执行了切换。 */
   toggleSceneFullscreen(): Promise<boolean>
   /** 返回当前渲染画面 PNG 数据 URL；不支持或捕获失败时返回 undefined。 */
