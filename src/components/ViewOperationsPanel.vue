@@ -1,6 +1,12 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from "vue"
-import { MAX_CAMERA_HEIGHT, MIN_CAMERA_HEIGHT, useMapController, type CameraState } from "../map"
+import {
+  clampCameraHeight,
+  MAX_CAMERA_HEIGHT,
+  MIN_CAMERA_HEIGHT,
+  useMapController,
+  type CameraState,
+} from "../map"
 
 const mapController = useMapController()
 
@@ -32,7 +38,7 @@ let feedbackTimer: number | undefined
 const heightSliderPosition = computed({
   get: () => heightToSlider(parseNumber(cameraForm.height) ?? 700_000),
   set: (position: number) => {
-    const height = Math.round(sliderToHeight(position))
+    const height = Math.round(clampCameraHeight(sliderToHeight(position)))
     cameraForm.height = String(height)
     mapController.setCameraState({ height })
   },
@@ -86,7 +92,7 @@ function applyCameraField(field: "heading" | "pitch" | "height") {
     return
   }
 
-  const height = Math.round(Math.min(MAX_CAMERA_HEIGHT, Math.max(MIN_CAMERA_HEIGHT, value)))
+  const height = Math.round(clampCameraHeight(value))
   cameraForm.height = String(height)
   mapController.setCameraState({ height })
 }
@@ -133,7 +139,7 @@ function syncField(field: string, value: string) {
 }
 
 function heightToSlider(height: number) {
-  const safeHeight = Math.min(MAX_CAMERA_HEIGHT, Math.max(MIN_CAMERA_HEIGHT, height))
+  const safeHeight = clampCameraHeight(height)
   return ((Math.log10(safeHeight) - Math.log10(MIN_CAMERA_HEIGHT)) / LOG_HEIGHT_RANGE) * 1000
 }
 
@@ -274,7 +280,7 @@ onBeforeUnmount(() => {
             class="parameter-number"
             type="number"
             inputmode="decimal"
-            min="500"
+            :min="MIN_CAMERA_HEIGHT"
             :max="MAX_CAMERA_HEIGHT"
             step="1"
             data-camera-field="height"

@@ -1,6 +1,6 @@
 import * as Cesium from "cesium"
 import type { CameraState, MapBounds, MapCoordinate } from "../../types"
-import { MAX_CAMERA_HEIGHT, MIN_CAMERA_HEIGHT } from "../../cameraLimits"
+import { clampCameraHeight } from "../../cameraLimits"
 
 const MIN_CAMERA_PITCH = -89.9
 const MAX_CAMERA_PITCH = 89.9
@@ -83,11 +83,7 @@ export function setCameraState(
 ) {
   const camera = viewer.camera
   const current = getCameraState(viewer)
-  const nextHeight = clampNumber(
-    state.height ?? current.height,
-    MIN_CAMERA_HEIGHT,
-    MAX_CAMERA_HEIGHT,
-  )
+  const nextHeight = clampCameraHeight(state.height ?? current.height)
   const nextHeading =
     state.heading === undefined ? current.heading : normalizeHeading(state.heading)
   const nextPitch = clampNumber(state.pitch ?? current.pitch, MIN_CAMERA_PITCH, MAX_CAMERA_PITCH)
