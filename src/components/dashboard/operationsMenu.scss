@@ -1,0 +1,130 @@
+.submenu-option {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  width: 100%;
+  min-height: 42px;
+  margin-top: 12px;
+  padding: 9px 10px;
+  border: 1px solid rgba(79, 151, 255, 0.24);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  background: rgba(19, 40, 72, 0.38);
+  text-align: left;
+  transition:
+    color 160ms ease,
+    border-color 160ms ease,
+    background-color 160ms ease;
+}
+
+.submenu-option > span {
+  overflow: hidden;
+  padding: 0 9px;
+  font-size: 13px;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.submenu-option > .bi:first-child,
+.submenu-chevron {
+  font-size: 15px;
+  line-height: 1;
+}
+
+.submenu-option:hover,
+.submenu-option:focus-visible {
+  border-color: rgba(72, 229, 255, 0.68);
+  color: var(--text-primary);
+  background: rgba(16, 47, 83, 0.82);
+}
+
+.submenu-option:focus-visible {
+  outline: 2px solid rgba(72, 229, 255, 0.42);
+  outline-offset: 2px;
+}
+
+.submenu-operation-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.submenu-operation-list .submenu-option {
+  margin-top: 0;
+}
+
+.submenu-option.is-active,
+.submenu-option.is-open {
+  border-color: rgba(72, 229, 255, 0.72);
+  color: var(--cyan);
+  background: rgba(16, 47, 83, 0.86);
+}
+
+.submenu-option:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.submenu-option:disabled:hover,
+.submenu-option:disabled:focus-visible {
+  border-color: rgba(79, 151, 255, 0.24);
+  color: var(--text-secondary);
+  background: rgba(19, 40, 72, 0.38);
+}
+
+.operation-mode,
+.operation-switch {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+}
+
+.operation-mode {
+  min-width: 34px;
+  height: 21px;
+  padding: 0 5px;
+  border: 1px solid rgba(72, 229, 255, 0.36);
+  border-radius: 3px;
+  color: var(--cyan);
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 11px;
+  line-height: 1;
+}
+
+.operation-switch {
+  position: relative;
+  width: 34px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid rgba(103, 139, 191, 0.58);
+  border-radius: 9px;
+  background: rgba(9, 24, 45, 0.92);
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease;
+}
+
+.operation-switch-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--text-secondary);
+  transition:
+    transform 160ms ease,
+    background-color 160ms ease;
+}
+
+.submenu-option.is-active .operation-switch {
+  border-color: rgba(72, 229, 255, 0.78);
+  background: rgba(20, 70, 100, 0.94);
+}
+
+.submenu-option.is-active .operation-switch-thumb {
+  transform: translateX(16px);
+  background: var(--cyan);
+}
