@@ -9,16 +9,16 @@
 
 ## 代理行为准则
 
-- 开发服务器只能由人工启动。LLM 不得通过任何命令或脚本运行、重启、代理或变相启动 `pnpm dev` / `pnpm dev:deck` / `pnpm preview` / `pnpm preview:deck`；不得停止或接管用户已启动的开发服务。运行时问题只能基于用户提供的 URL、日志、控制台输出、网络请求信息，或生产构建等显式允许的验证方式排查。
+- 开发服务器只能由人工启动。LLM 不得通过任何命令或脚本运行、重启、代理或变相启动 `pnpm dev` / `pnpm preview`；不得停止或接管用户已启动的开发服务。运行时问题只能基于用户提供的 URL、日志、控制台输出、网络请求信息，或生产构建等显式允许的验证方式排查。
 - 除非用户在当前请求中明确要求或 skill 的流程有实际需求，LLM 不得查看或推断 Git 历史，包括但不限于 `git log`、`git blame`、`git show`、历史 diff、旧提交内容、旧文件版本和分支演变。分析只能以当前工作区状态为准。允许使用 `git status`、`git diff --cached` 和 `git diff` 检查当前未提交状态。
 - 不得读取 `.git` 目录、缓存快照、备份目录或其他工作区副本中的旧版内容来还原、比较或解释当前实现。用户明确要求查看历史时，也只读取其指定的对象。
 - 不得自动 stage 用户未选择的文件；`git commit` 智能处理已经在 stage 里的文件而且必须先展示待提交内容；未经用户明确要求不得 `git push`。
 
 ## 概述
 
-Vue 3 + TypeScript + Vite 的 GIS 大屏（数字态势监控中心），以广西区域为中心，围绕一个共享的地图应用层构建，可选用两个渲染引擎：Cesium 与 deck.gl。
+Vue 3 + TypeScript + Vite 的 GIS 大屏（数字态势监控中心），以广西区域为中心，围绕一个共享的地图应用层构建。本分支只包含并启用 Cesium 渲染引擎。
 
-当前只做 Cesium 实现，不做 deck.gl：双引擎架构保留作为骨架，但新功能只往 Cesium 引擎加；deck.gl 引擎仅作最小占位，不投入新工作。
+当前分支只做 Cesium 实现，不包含 deck.gl 实现和依赖。引擎无关的地图应用层与构建期入口抽象保留，后续如需接入其他引擎，应在专门分支中补充对应引擎工作区。
 
 ## UI/UX 风格
 
@@ -38,18 +38,17 @@ Vue 3 + TypeScript + Vite 的 GIS 大屏（数字态势监控中心），以广�
 
 - `src/App.vue` 是大屏外壳，组织顶栏、左右操作栏、浮动面板、底栏和屏幕级 UI 状态；复杂面板尽量拆成 `src/components` 下的独立组件。
 - `src/components` 放通用或界面级组件，例如地图视口、指北针、错误边界、浮窗容器和视角操作面板。组件使用 `<script setup lang="ts">`，显示状态就近维护。
-- `src/map` 是引擎无关层：`types.ts` 定义引擎契约，`mapController.ts` 封装调用和异步挂载保护，`useMapController.ts` 通过 provide/inject 提供实例，`engineProvider.ts` 按构建期模式加载入口。界面层不直接导入 Cesium 或 deck.gl。
-- `src/map/engines/cesium` 是当前唯一重点实现的引擎工作区，按创建 viewer、相机、场景、边界和图源等职责拆分；`src/map/engines/deck` 只保留最小占位。新增地图能力先扩展共享契约，再在 Cesium 引擎实现。
+- `src/map` 是引擎无关层：`types.ts` 定义引擎契约，`mapController.ts` 封装调用和异步挂载保护，`useMapController.ts` 通过 provide/inject 提供实例，`engineProvider.ts` 加载构建期入口。界面层不直接导入具体地图引擎。
+- `src/map/engines/cesium` 是当前唯一的引擎工作区，按创建 viewer、相机、场景、边界和图源等职责拆分。新增地图能力先扩展共享契约，再在 Cesium 引擎实现。
 - `src/stores` 放 Pinia setup store；跨会话数据使用 `localStore` 与 `localStorage`，标签页会话数据使用 `sessionStore` 与 `sessionStorage`。持久化配置由 `pinia-plugin-persistedstate` 处理。
 - 样式入口和全局令牌在 `src/styles/global.css`；普通 UI 用 scoped SCSS 或 Tailwind，地图引擎生成的 DOM 用引擎目录内的 SCSS 配合 `:deep()` 选择器处理。
 
 ## 命令
 
 ```bash
-pnpm dev          # Cesium 开发服务器（默认模式）
-pnpm dev:deck     # deck.gl 开发服务器（deck-gl 模式）
-pnpm build        # vue-tsc -b + Cesium 生产构建（build:deck 为 deck.gl）
-pnpm preview      # 生产预览（preview:deck 为 deck.gl）
+pnpm dev          # Cesium 开发服务器
+pnpm build        # vue-tsc -b + Cesium 生产构建
+pnpm preview      # 生产预览
 
 pnpm lint         # oxlint
 pnpm lint:fix     # oxlint --fix
@@ -69,15 +68,15 @@ pnpm format:check # oxfmt --check
 ## 提交约定
 
 - 格式：`<type>(scope): description`，type 取 `feat` / `fix` / `docs` / `refactor` / `perf` / `build` / `chore` / `test` / `ci` / `style` / `revert`；破坏性变更加 `!`。
-- scope 用模块/包名（如 `map`、`engines/cesium`、`engines/deck`），从历史中判断；不强行加 scope。
+- scope 用模块/包名（如 `map`、`engines/cesium`），从历史中判断；不强行加 scope。
 - 中文祈使句摘要，首字母小写，无句号，不超过 72 字符；改动原因不明显时附 body。
 - 无 PR/MR 模板；标题沿用同一约定；在 GitCode 上以 MR 合并。
 
 ## 架构
 
-### 构建期引擎选择
+### 构建期引擎入口
 
-引擎由 Vite **模式**决定，而非运行时状态。`vite.config.ts` 将别名 `@cesium-base/map-engine-entry` 映射到 `src/map/engines/cesium/index.ts`（默认）或 `src/map/engines/deck/index.ts`（`deck-gl` 模式），因此每个构建只包含一个引擎。`tsconfig.app.json` 为类型检查镜像了该别名（默认指向 Cesium 入口）。`src/map/engineProvider.ts` 动态导入该别名；它还会读取 `VITE_MAP_ENGINE`（在 `.env` / `.env.deck-gl` 中设置），但仅用于向 UI 提供 `mapEngineId` 标签——请保持这些环境变量与所构建的模式一致。
+引擎入口由 Vite 构建期别名 `@cesium-base/map-engine-entry` 提供，本分支固定映射到 `src/map/engines/cesium/index.ts`。`tsconfig.app.json` 为类型检查镜像了该别名。`src/map/engineProvider.ts` 动态导入该别名，并向共享层暴露 `mapEngineId`。
 
 ### 共享地图层 → 引擎契约
 
@@ -88,7 +87,7 @@ pnpm format:check # oxfmt --check
 
 ### 引擎工作区（pnpm）
 
-`pnpm-workspace.yaml` 将每个引擎目录设为拥有**独立** `package.json` 的工作区包（`@cesium-base/map-engine-cesium`、`@cesium-base/map-engine-deck`）。根包刻意不依赖 Cesium/deck.gl。引擎依赖请添加到对应引擎的 manifest，然后在根目录执行 `pnpm install`。引擎内部按关注点拆分代码（例如 Cesium：`createViewer`、`cameraOperations`、`sceneOperations`、`provinceBoundaries` + `geojson` 辅助函数）。
+`pnpm-workspace.yaml` 将引擎目录设为拥有**独立** `package.json` 的工作区包（`@cesium-base/map-engine-cesium`）。引擎依赖请添加到对应引擎的 manifest，然后在根目录执行 `pnpm install`。引擎内部按关注点拆分代码（例如 Cesium：`createViewer`、`cameraOperations`、`sceneOperations`、`provinceBoundaries` + `geojson` 辅助函数）。
 
 ### Cesium 静态资源
 
@@ -100,11 +99,11 @@ Cesium 底图为天地图 WMTS 影像 + 注记。需要在根目录 `.env` 中�
 
 ## 样式
 
-Tailwind CSS v4 通过 `@tailwindcss/vite` 加载；其入口（`@import "tailwindcss"`）与共享 `@theme` 设计令牌位于 `src/styles/global.css`。Sass 可通过 Vite 使用——组件样式保持在组件内。针对地图引擎生成的 DOM（Cesium 部件、deck 画布）的样式必须使用 Vue 的 `:deep()` 选择器（见 `engines/*/*.scss`）。
+Tailwind CSS v4 通过 `@tailwindcss/vite` 加载；其入口（`@import "tailwindcss"`）与共享 `@theme` 设计令牌位于 `src/styles/global.css`。Sass 可通过 Vite 使用——组件样式保持在组件内。针对地图引擎生成的 DOM（如 Cesium 部件）的样式必须使用 Vue 的 `:deep()` 选择器（见 `engines/cesium/*.scss`）。
 
 ## 环境与配置
 
 - Vite 加载 `VITE_` 前缀环境变量，文件查找顺序遵循 Vite 默认（`.env` / `.env.*`）。
 - `.gitignore` 已忽略 `.env` 与 `.env.*`；仅 `.env.example` 入库作为模板。
 - 不得向 `.env.example` 提交任何真实 Key、令牌或机密。
-- 已知变量：`VITE_TIANDITU_KEY`（天地图浏览器端 Key，申请地址 <<https://console.tianditu.gov.cn/api/key）、`VITE_CESIUM_ION_ACCESS_TOKEN`（Cesium> ion 访问令牌，用于加载 Cesium World Terrain 地形，申请地址 <https://ion.cesium.com/tokens>）、`VITE_MAP_ENGINE`（仅供 UI 标签，模式由 Vite mode 决定）。
+- 已知变量：`VITE_TIANDITU_KEY`（天地图浏览器端 Key，申请地址 <<https://console.tianditu.gov.cn/api/key）、`VITE_CESIUM_ION_ACCESS_TOKEN`（Cesium> ion 访问令牌，用于加载 Cesium World Terrain 地形，申请地址 <https://ion.cesium.com/tokens>）。

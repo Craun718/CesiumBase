@@ -73,8 +73,6 @@ importers:
         specifier: ^1.144.0
         version: 1.144.0
 
-  src/map/engines/deck: {}
-
 packages:
 
   '@babel/helper-string-parser@7.29.7':

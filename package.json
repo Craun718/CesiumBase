@@ -5,11 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:deck": "vite --mode deck-gl",
     "build": "vue-tsc -b && vite build",
-    "build:deck": "vue-tsc -b && vite build --mode deck-gl",
     "preview": "vite preview",
-    "preview:deck": "vite preview --mode deck-gl",
     "lint": "oxlint .",
     "lint:fix": "oxlint --fix .",
     "format": "oxfmt --write .",

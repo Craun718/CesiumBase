@@ -1,6 +1,6 @@
 export type SceneMode = "2d" | "3d"
 
-export type MapEngineId = "cesium" | "deck-gl"
+export type MapEngineId = "cesium"
 
 export type MapBounds = {
   west: number
@@ -101,7 +101,7 @@ export interface MapEngine {
 
   /**
    * 当前引擎支持的图源列表（用于 UI 渲染下拉/列表）。
-   * 引擎可返回空数组（如 deck.gl 占位阶段）。
+   * 引擎可返回空数组。
    */
   listBaseImagerySources(): ImagerySource[]
   /** 当前激活图源 id；未挂载或不支持时返回 undefined。 */
