@@ -1,4 +1,5 @@
 import * as Cesium from "cesium"
+import { logMapDiagnostic } from "../../diagnostics"
 import type {
   CameraFlightOptions,
   CameraState,
@@ -10,6 +11,7 @@ import type {
   SceneMode,
 } from "../../types"
 import { createViewer } from "./createViewer"
+import { installCesiumDiagnostics } from "./diagnostics"
 import {
   getCameraHeading,
   captureScreenshot,
@@ -55,9 +57,14 @@ export class CesiumMapEngine implements MapEngine {
   async mount(container: HTMLElement) {
     if (this.viewer) return
 
+    logMapDiagnostic("cesium-engine:mount:start", {
+      container: [container.clientWidth, container.clientHeight],
+    })
+
     const viewer = await createViewer(container)
     this.viewer = viewer
 
+    installCesiumDiagnostics(viewer)
     configureScene(viewer)
     setInitialCamera(viewer)
     void addProvinceBoundaries(viewer)
@@ -89,6 +96,8 @@ export class CesiumMapEngine implements MapEngine {
     }
 
     this.refreshCoordinateReadout(viewer)
+
+    logMapDiagnostic("cesium-engine:mount:complete")
   }
 
   unmount() {

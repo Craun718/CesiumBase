@@ -23,7 +23,12 @@ withDefaults(
 
 onMounted(async () => {
   if (mapContainer.value) {
-    await mapController.mount(mapContainer.value)
+    try {
+      await mapController.mount(mapContainer.value)
+    } catch (error) {
+      console.error("[map] 引擎挂载失败", error)
+      throw error
+    }
   }
 
   disposeCameraHeadingChange = mapController.onCameraHeadingChange((heading) => {
