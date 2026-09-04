@@ -403,31 +403,30 @@ function restoreCustomBaseMapUrl() {
   }
 }
 
-/** 引擎挂载完成后恢复上次启用的 DEM 服务，便于刷新后继续验证地形效果。 */
-function restoreActiveTerrainService() {
-  const service = localStore.dataServices.find(
-    (item) => item.id === localStore.activeTerrainServiceId,
-  )
+/** 引擎挂载完成后从 .env 加载 DEM 服务；URL 留空时静默跳过。 */
+function restoreEnvTerrainService() {
+  const url = import.meta.env.VITE_DEM_SERVICE_URL?.trim()
 
-  if (!service) return
+  if (!url) return
+
+  const token = import.meta.env.VITE_DEM_SERVICE_TOKEN?.trim()
 
   mapController
     .setTerrainSource({
-      id: service.id,
-      name: service.name,
-      url: service.url,
-      requestVertexNormals: service.params?.requestVertexNormals ?? false,
-      requestWaterMask: service.params?.requestWaterMask ?? false,
+      id: "env-config",
+      name: "默认 DEM 服务",
+      url,
+      authToken: token || undefined,
     })
     .catch((error) => {
-      console.warn("[数据服务] 恢复 DEM 失败", error)
+      console.warn("[数据服务] 加载 DEM 失败", error)
     })
 }
 
 disposeMountState = mapController.onMountStateChange((ready) => {
   if (ready) {
     restoreCustomBaseMapUrl()
-    restoreActiveTerrainService()
+    restoreEnvTerrainService()
   }
 })
 

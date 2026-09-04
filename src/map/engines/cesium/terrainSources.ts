@@ -10,10 +10,20 @@ export async function createCesiumTerrainProvider(source?: TerrainSource) {
     throw new Error("DEM 服务地址必须是 http:// 或 https:// 开头")
   }
 
-  return Cesium.CesiumTerrainProvider.fromUrl(source.url, {
+  const options = {
     requestVertexNormals: source.requestVertexNormals ?? false,
     requestWaterMask: source.requestWaterMask ?? false,
-  })
+  }
+
+  if (source.authToken) {
+    const resource = new Cesium.Resource({
+      url: source.url,
+      headers: { Authorization: `Bearer ${source.authToken}` },
+    })
+    return Cesium.CesiumTerrainProvider.fromUrl(resource, options)
+  }
+
+  return Cesium.CesiumTerrainProvider.fromUrl(source.url, options)
 }
 
 export function applyCesiumTerrainProvider(
