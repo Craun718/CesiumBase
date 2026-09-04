@@ -1,0 +1,45 @@
+.rail-panel {
+  position: absolute;
+  top: 0;
+  z-index: 3;
+  width: var(--rail-panel-width, var(--map-menu-width, 302px));
+  max-height: 100%;
+  overflow-y: auto;
+  pointer-events: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(72, 229, 255, 0.45) transparent;
+}
+
+.rail-panel::-webkit-scrollbar {
+  width: 4px;
+}
+
+.rail-panel::-webkit-scrollbar-thumb {
+  border-radius: 2px;
+  background: rgba(72, 229, 255, 0.45);
+}
+
+.panel-left {
+  left: calc(100% + var(--rail-map-gap, 18px));
+}
+
+.panel-left-third {
+  left: calc(100% + 2 * var(--rail-map-gap, 18px) + var(--map-menu-width, 302px));
+}
+
+.panel-right {
+  right: calc(100% + var(--rail-map-gap, 18px));
+}
+
+.panel-right-third {
+  right: calc(100% + 2 * var(--rail-map-gap, 18px) + var(--map-menu-width, 302px));
+}
+
+@media (max-width: 1023px) {
+  .rail-panel {
+    position: relative;
+    inset: auto;
+    width: 100%;
+    max-height: min(56vh, 420px);
+  }
+}

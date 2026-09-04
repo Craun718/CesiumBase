@@ -1,6 +1,7 @@
 import { loadMapEngine } from "./engineProvider"
 import type {
   CameraState,
+  CameraFlightOptions,
   CoordinateReadout,
   ImagerySource,
   MapBounds,
@@ -102,6 +103,10 @@ export class MapController {
     this.engine?.setTerrainExaggerationScale(scale)
   }
 
+  setUndergroundMode(enabled: boolean) {
+    this.engine?.setUndergroundMode(enabled)
+  }
+
   getCameraHeading() {
     return this.engine?.getCameraHeading() ?? 0
   }
@@ -134,6 +139,15 @@ export class MapController {
     this.engine?.setCameraState(state)
   }
 
+  flyToCameraState(state: CameraState, options?: CameraFlightOptions) {
+    if (this.engine) {
+      this.engine.flyToCameraState(state, options)
+      return
+    }
+
+    options?.onCancel?.()
+  }
+
   onCameraStateChange(listener: (state: CameraState) => void) {
     return this.engine?.onCameraStateChange(listener) ?? (() => {})
   }
@@ -164,6 +178,10 @@ export class MapController {
 
   captureScreenshot() {
     return this.engine?.captureScreenshot()
+  }
+
+  captureScreenshotThumbnail() {
+    return this.engine?.captureScreenshotThumbnail()
   }
 
   /** 当前引擎支持的图源列表（用于 UI 渲染）。 */

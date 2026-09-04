@@ -1,6 +1,6 @@
 export type SceneMode = "2d" | "3d"
 
-export type MapEngineId = "cesium" | "deck-gl"
+export type MapEngineId = "cesium"
 
 export type MapBounds = {
   west: number
@@ -16,6 +16,22 @@ export interface CameraState {
   readonly height: number
   readonly heading: number
   readonly pitch: number
+}
+
+export interface CameraFlightOptions {
+  /** 相机到达目标视角后回调；用户交互中断飞行时触发 onCancel。 */
+  readonly onComplete?: () => void
+  readonly onCancel?: () => void
+}
+
+/** 本地持久化的收藏视角；screenshot 为空字符串表示截图生成失败。 */
+export interface ViewFavorite {
+  readonly id: string
+  readonly name: string
+  readonly camera: CameraState
+  readonly screenshot: string
+  readonly createdAt: string
+  readonly updatedAt: string
 }
 
 /** 用于视角定位的地面坐标。 */
@@ -69,6 +85,8 @@ export interface MapEngine {
   setNorthLock(enabled: boolean): void
   setTerrainExaggeration(enabled: boolean, scale: number): void
   setTerrainExaggerationScale(scale: number): void
+  /** 开启后相机可进入地表以下，并以半透明地表辅助观察地下内容。 */
+  setUndergroundMode(enabled: boolean): void
   getCameraHeading(): number
   setCameraHeading(heading: number): void
   resetCameraNorth(): void
@@ -77,6 +95,8 @@ export interface MapEngine {
   getCameraState(): CameraState
   /** 局部更新相机参数；未提供的字段保持当前值。 */
   setCameraState(state: Partial<Omit<CameraState, "longitude" | "latitude">>): void
+  /** 飞行到完整相机状态；目标参数非法时不移动相机。 */
+  flyToCameraState(state: CameraState, options?: CameraFlightOptions): void
   /** 监听相机参数变化，返回取消监听函数。 */
   onCameraStateChange(listener: (state: CameraState) => void): () => void
   /** 读取状态栏坐标读数；地图尚未就绪时返回 undefined。 */
@@ -87,10 +107,12 @@ export interface MapEngine {
   toggleSceneFullscreen(): Promise<boolean>
   /** 返回当前渲染画面 PNG 数据 URL；不支持或捕获失败时返回 undefined。 */
   captureScreenshot(): string | undefined
+  /** 返回收藏列表使用的压缩缩略图数据 URL；不支持或捕获失败时返回 undefined。 */
+  captureScreenshotThumbnail(): string | undefined
 
   /**
    * 当前引擎支持的图源列表（用于 UI 渲染下拉/列表）。
-   * 引擎可返回空数组（如 deck.gl 占位阶段）。
+   * 引擎可返回空数组。
    */
   listBaseImagerySources(): ImagerySource[]
   /** 当前激活图源 id；未挂载或不支持时返回 undefined。 */

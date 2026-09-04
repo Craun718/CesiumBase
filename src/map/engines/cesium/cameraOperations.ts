@@ -1,6 +1,7 @@
 import * as Cesium from "cesium"
-import type { CameraState, MapBounds, MapCoordinate } from "../../types"
+import type { CameraFlightOptions, CameraState, MapBounds, MapCoordinate } from "../../types"
 import { clampCameraHeight } from "../../cameraLimits"
+import { createThumbnailFromCanvas, exportCanvasToDataUrl } from "../../screenshotThumbnail"
 
 const MIN_CAMERA_PITCH = -89.9
 const MAX_CAMERA_PITCH = 89.9
@@ -99,6 +100,33 @@ export function setCameraState(
   })
 }
 
+export function flyToCameraState(
+  viewer: Cesium.Viewer,
+  state: CameraState,
+  options: CameraFlightOptions = {},
+) {
+  if (!isValidCameraState(state)) {
+    options.onCancel?.()
+    return
+  }
+
+  viewer.camera.flyTo({
+    destination: Cesium.Cartesian3.fromDegrees(
+      normalizeLongitude(state.longitude),
+      Math.min(90, Math.max(-90, state.latitude)),
+      clampCameraHeight(state.height),
+    ),
+    orientation: {
+      heading: Cesium.Math.toRadians(normalizeHeading(state.heading)),
+      pitch: Cesium.Math.toRadians(clampNumber(state.pitch, MIN_CAMERA_PITCH, MAX_CAMERA_PITCH)),
+      roll: viewer.camera.roll,
+    },
+    duration: 1.5,
+    complete: options.onComplete,
+    cancel: options.onCancel,
+  })
+}
+
 export function resetCameraNorth(viewer: Cesium.Viewer, duration = 5) {
   const camera = viewer.camera
 
@@ -165,15 +193,38 @@ export function getGroundCenter(viewer: Cesium.Viewer) {
   return Cesium.Cartographic.fromCartesian(viewer.camera.positionWC)
 }
 
-export function captureScreenshot(viewer: Cesium.Viewer) {
+function renderScreenshotCanvas(viewer: Cesium.Viewer) {
+  const canvas = viewer.canvas
+
+  if (!canvas || canvas.width === 0 || canvas.height === 0) {
+    console.warn("[Cesium] 场景截屏画布不可用", {
+      hasCanvas: Boolean(canvas),
+      width: canvas?.width ?? 0,
+      height: canvas?.height ?? 0,
+    })
+    return undefined
+  }
+
   try {
     viewer.scene.render()
 
-    return viewer.canvas.toDataURL("image/png")
+    return canvas
   } catch (error) {
-    console.warn("[Cesium] 场景截屏失败", error)
+    console.warn("[Cesium] 场景截屏渲染失败", error)
     return undefined
   }
+}
+
+export function captureScreenshot(viewer: Cesium.Viewer) {
+  const canvas = renderScreenshotCanvas(viewer)
+
+  return canvas ? exportCanvasToDataUrl(canvas, "image/png") : undefined
+}
+
+export function captureScreenshotThumbnail(viewer: Cesium.Viewer) {
+  const canvas = renderScreenshotCanvas(viewer)
+
+  return canvas ? createThumbnailFromCanvas(canvas) : undefined
 }
 
 function isValidCoordinate(coordinate: MapCoordinate) {
@@ -186,6 +237,15 @@ function isValidCoordinate(coordinate: MapCoordinate) {
     longitude <= 180 &&
     latitude >= -90 &&
     latitude <= 90
+  )
+}
+
+function isValidCameraState(state: CameraState) {
+  return (
+    isValidCoordinate(state) &&
+    Number.isFinite(state.height) &&
+    Number.isFinite(state.heading) &&
+    Number.isFinite(state.pitch)
   )
 }
 

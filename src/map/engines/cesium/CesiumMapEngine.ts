@@ -1,5 +1,7 @@
 import * as Cesium from "cesium"
+import { logMapDiagnostic } from "../../diagnostics"
 import type {
+  CameraFlightOptions,
   CameraState,
   CoordinateReadout,
   ImagerySource,
@@ -10,9 +12,12 @@ import type {
   TerrainSource,
 } from "../../types"
 import { createViewer } from "./createViewer"
+import { installCesiumDiagnostics } from "./diagnostics"
 import {
   getCameraHeading,
   captureScreenshot,
+  captureScreenshotThumbnail,
+  flyToCameraState,
   flyToCoordinate,
   flyToBounds,
   getCameraState,
@@ -31,6 +36,7 @@ import {
   setSceneMode,
   setTerrainExaggeration,
   setTerrainExaggerationScale,
+  setUndergroundMode,
 } from "./sceneOperations"
 import { addProvinceBoundaries } from "./provinceBoundaries"
 import {
@@ -54,9 +60,14 @@ export class CesiumMapEngine implements MapEngine {
   async mount(container: HTMLElement) {
     if (this.viewer) return
 
+    logMapDiagnostic("cesium-engine:mount:start", {
+      container: [container.clientWidth, container.clientHeight],
+    })
+
     const viewer = await createViewer(container)
     this.viewer = viewer
 
+    installCesiumDiagnostics(viewer)
     configureScene(viewer)
     setInitialCamera(viewer)
     void addProvinceBoundaries(viewer)
@@ -88,6 +99,8 @@ export class CesiumMapEngine implements MapEngine {
     }
 
     this.refreshCoordinateReadout(viewer)
+
+    logMapDiagnostic("cesium-engine:mount:complete")
   }
 
   unmount() {
@@ -163,6 +176,14 @@ export class CesiumMapEngine implements MapEngine {
     }
   }
 
+  setUndergroundMode(enabled: boolean) {
+    const viewer = this.getActiveViewer()
+
+    if (viewer) {
+      setUndergroundMode(viewer, enabled)
+    }
+  }
+
   getCameraHeading() {
     const viewer = this.getActiveViewer()
 
@@ -207,6 +228,17 @@ export class CesiumMapEngine implements MapEngine {
     }
   }
 
+  flyToCameraState(state: CameraState, options?: CameraFlightOptions) {
+    const viewer = this.getActiveViewer()
+
+    if (viewer) {
+      flyToCameraState(viewer, state, options)
+      return
+    }
+
+    options?.onCancel?.()
+  }
+
   onCameraStateChange(listener: (state: CameraState) => void) {
     const viewer = this.getActiveViewer()
 
@@ -247,6 +279,12 @@ export class CesiumMapEngine implements MapEngine {
     const viewer = this.getActiveViewer()
 
     return viewer ? captureScreenshot(viewer) : undefined
+  }
+
+  captureScreenshotThumbnail() {
+    const viewer = this.getActiveViewer()
+
+    return viewer ? captureScreenshotThumbnail(viewer) : undefined
   }
 
   listBaseImagerySources(): ImagerySource[] {

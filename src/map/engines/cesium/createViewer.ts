@@ -1,4 +1,5 @@
 import * as Cesium from "cesium"
+import { logMapDiagnostic } from "../../diagnostics"
 import { registerInitialBaseLayers } from "./baseImagery"
 import { findCesiumImagerySource, DEFAULT_CESIUM_IMAGERY_SOURCE_ID } from "./imagerySources"
 
@@ -9,12 +10,10 @@ import { findCesiumImagerySource, DEFAULT_CESIUM_IMAGERY_SOURCE_ID } from "./ima
  * `applyCesiumImagerySource` 在不重建 Viewer 的情况下热切换。
  *
  * 注：天地图 Key（VITE_TIANDITU_KEY）必须在 .env 中配置，否则抛错。
- * 可选：在 .env 中配置 `VITE_CESIUM_ION_ACCESS_TOKEN` 后会自动加载
- * Cesium World Terrain 地形（供“地形突出”功能使用），留空则不加载地形。
+ * 可选：在 .env 中配置 `VITE_CESIUM_ION_ACCESS_TOKEN` 后，会在首帧
+ * 后异步加载 Cesium World Terrain 地形，留空则不加载地形。
  */
 export async function createViewer(container: HTMLElement) {
-  await Cesium.GroundPrimitive.initializeTerrainHeights()
-
   const defaultSource = findCesiumImagerySource(DEFAULT_CESIUM_IMAGERY_SOURCE_ID)
 
   if (!defaultSource) {
@@ -26,6 +25,7 @@ export async function createViewer(container: HTMLElement) {
   const baseLayer = baseLayers[0]
 
   const ionAccessToken = import.meta.env.VITE_CESIUM_ION_ACCESS_TOKEN?.trim()
+  const demServiceUrl = import.meta.env.VITE_DEM_SERVICE_URL?.trim()
 
   if (ionAccessToken) {
     Cesium.Ion.defaultAccessToken = ionAccessToken
@@ -56,15 +56,11 @@ export async function createViewer(container: HTMLElement) {
         preserveDrawingBuffer: true,
       },
     },
-    ...(ionAccessToken
-      ? {
-          // 请求顶点法线与水波掩膜，让地形细节更丰富
-          terrain: Cesium.Terrain.fromWorldTerrain({
-            requestVertexNormals: true,
-            requestWaterMask: true,
-          }),
-        }
-      : {}),
+  })
+
+  logMapDiagnostic("cesium:viewer-created", {
+    viewport: [container.clientWidth, container.clientHeight],
+    canvas: [viewer.canvas.clientWidth, viewer.canvas.clientHeight],
   })
 
   for (const layer of baseLayers.slice(1)) {
@@ -74,5 +70,63 @@ export async function createViewer(container: HTMLElement) {
   // 把已加入 Viewer 的基底图层登记到 baseImagery 跟踪表，便于后续热切换时整体替换。
   registerInitialBaseLayers(viewer, defaultSource, baseLayers)
 
+  // 首帧后再加载地形，避免 Ion 元数据请求阻塞地球与底图显示。
+  // 已配置自建 DEM 时跳过 World Terrain，避免默认地形在首帧后覆盖自定义服务。
+  loadTerrainAfterFirstRender(viewer, Boolean(ionAccessToken) && !demServiceUrl)
+
   return viewer
+}
+
+function loadTerrainAfterFirstRender(viewer: Cesium.Viewer, shouldLoadWorldTerrain: boolean) {
+  const removePostRenderListener = viewer.scene.postRender.addEventListener(() => {
+    removePostRenderListener()
+    startTerrainResources(viewer, shouldLoadWorldTerrain)
+  })
+}
+
+function startTerrainResources(viewer: Cesium.Viewer, shouldLoadWorldTerrain: boolean) {
+  logMapDiagnostic("cesium:terrain-heights:start")
+
+  Cesium.GroundPrimitive.initializeTerrainHeights().then(
+    () => {
+      if (!viewer.isDestroyed()) {
+        logMapDiagnostic("cesium:terrain-heights:complete")
+      }
+    },
+    (error) => {
+      if (!viewer.isDestroyed()) {
+        logMapDiagnostic("cesium:terrain-heights:error", String(error))
+      }
+    },
+  )
+
+  if (!shouldLoadWorldTerrain) return
+
+  logMapDiagnostic("cesium:world-terrain:start")
+
+  const terrain = Cesium.Terrain.fromWorldTerrain({
+    requestVertexNormals: true,
+    requestWaterMask: true,
+  })
+  const removeReadyListener = terrain.readyEvent.addEventListener(() => {
+    removeTerrainListeners()
+
+    if (!viewer.isDestroyed()) {
+      logMapDiagnostic("cesium:world-terrain:ready")
+    }
+  })
+  const removeErrorListener = terrain.errorEvent.addEventListener((error) => {
+    removeTerrainListeners()
+
+    if (!viewer.isDestroyed()) {
+      logMapDiagnostic("cesium:world-terrain:error", String(error))
+    }
+  })
+
+  function removeTerrainListeners() {
+    removeReadyListener()
+    removeErrorListener()
+  }
+
+  viewer.scene.setTerrain(terrain)
 }
