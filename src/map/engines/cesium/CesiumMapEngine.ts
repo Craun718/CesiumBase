@@ -1,5 +1,6 @@
 import * as Cesium from "cesium"
 import type {
+  CameraFlightOptions,
   CameraState,
   CoordinateReadout,
   ImagerySource,
@@ -12,6 +13,8 @@ import { createViewer } from "./createViewer"
 import {
   getCameraHeading,
   captureScreenshot,
+  captureScreenshotThumbnail,
+  flyToCameraState,
   flyToCoordinate,
   flyToBounds,
   getCameraState,
@@ -212,6 +215,17 @@ export class CesiumMapEngine implements MapEngine {
     }
   }
 
+  flyToCameraState(state: CameraState, options?: CameraFlightOptions) {
+    const viewer = this.getActiveViewer()
+
+    if (viewer) {
+      flyToCameraState(viewer, state, options)
+      return
+    }
+
+    options?.onCancel?.()
+  }
+
   onCameraStateChange(listener: (state: CameraState) => void) {
     const viewer = this.getActiveViewer()
 
@@ -252,6 +266,12 @@ export class CesiumMapEngine implements MapEngine {
     const viewer = this.getActiveViewer()
 
     return viewer ? captureScreenshot(viewer) : undefined
+  }
+
+  captureScreenshotThumbnail() {
+    const viewer = this.getActiveViewer()
+
+    return viewer ? captureScreenshotThumbnail(viewer) : undefined
   }
 
   listBaseImagerySources(): ImagerySource[] {

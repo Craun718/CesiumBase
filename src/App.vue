@@ -4,6 +4,7 @@ import ErrorBoundary from "./components/ErrorBoundary.vue"
 import MapViewport from "./components/MapViewport.vue"
 import FloatingWindow from "./components/FloatingWindow.vue"
 import ViewOperationsPanel from "./components/ViewOperationsPanel.vue"
+import ViewFavoritesPanel from "./components/ViewFavoritesPanel.vue"
 import {
   mapEngineId,
   provideMapController,
@@ -15,7 +16,7 @@ import { useLocalStore } from "./stores"
 
 type LeftPanelId = "overview" | "distribution" | "map"
 type RightMenuId = "view" | "alerts" | "resources"
-type ViewPanelId = "view-position" | "view-camera"
+type ViewPanelId = "view-position" | "view-camera" | "view-favorites"
 type ViewOperationId = ViewPanelId | "view-fullscreen" | "view-screenshot" | "view-center"
 type RightPanelId = ViewPanelId | "alerts" | "resources"
 type RightCommandId = "return-guangxi"
@@ -102,6 +103,7 @@ const rightCommands = [
 const viewOperations = [
   { id: "view-position", label: "视角定位", icon: "bi-crosshair", kind: "panel" },
   { id: "view-camera", label: "相机参数", icon: "bi-camera-reels", kind: "panel" },
+  { id: "view-favorites", label: "视图收藏", icon: "bi-bookmark-star", kind: "panel" },
   { id: "view-fullscreen", label: "场景全屏", icon: "bi-arrows-fullscreen", kind: "command" },
   { id: "view-screenshot", label: "场景截屏下载", icon: "bi-camera", kind: "command" },
   { id: "view-center", label: "显示视角中心", icon: "bi-crosshair2", kind: "toggle" },
@@ -229,7 +231,11 @@ function isViewOperationActive(operationId: ViewOperationId) {
 }
 
 function activateViewOperation(operationId: ViewOperationId) {
-  if (operationId === "view-position" || operationId === "view-camera") {
+  if (
+    operationId === "view-position" ||
+    operationId === "view-camera" ||
+    operationId === "view-favorites"
+  ) {
     openRightPanel(operationId)
     return
   }
@@ -815,6 +821,18 @@ const resourceLoads = [
           </FloatingWindow>
 
           <FloatingWindow
+            v-if="activeRightPanel === 'view-favorites'"
+            id="right-view-favorites-panel"
+            class="rail-panel panel-right"
+            title="视图收藏"
+            tag="FAVORITES"
+            close-label="关闭视图收藏"
+            @close="closeRightPanel"
+          >
+            <ViewFavoritesPanel />
+          </FloatingWindow>
+
+          <FloatingWindow
             v-if="activeRightPanel === 'alerts'"
             id="right-alerts-panel"
             class="rail-panel panel-right"
@@ -871,79 +889,6 @@ const resourceLoads = [
     </footer>
   </div>
 </template>
-
-<style>
-@import "tailwindcss";
-
-@theme {
-  --color-abyss: #030913;
-  --color-panel: rgba(7, 20, 42, 0.78);
-  --color-panel-border: rgba(79, 151, 255, 0.28);
-  --color-panel-inner: rgba(79, 151, 255, 0.18);
-  --color-text-primary: #e9f5ff;
-  --color-text-secondary: #9db8dc;
-  --color-text-muted: #6f8bad;
-  --color-accent-cyan: #48e5ff;
-  --color-accent-blue: #57a4ff;
-  --color-accent-amber: #ffb648;
-  --color-accent-rose: #ff5f78;
-
-  --font-interface: Inter, "HarmonyOS Sans SC", "Microsoft YaHei", system-ui, sans-serif;
-  --font-data: ui-monospace, Consolas, monospace;
-}
-
-:root {
-  color-scheme: dark;
-  font-family: var(--font-interface);
-  font-size: 16px;
-  line-height: 1.45;
-  letter-spacing: 0;
-  color: #dcecff;
-  background: #030913;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-
-  --panel-bg: var(--color-panel);
-  --panel-border: var(--color-panel-border);
-  --panel-inner-line: var(--color-panel-inner);
-  --panel-shadow: 0 16px 42px rgba(1, 8, 20, 0.52);
-  --text-primary: var(--color-text-primary);
-  --text-secondary: var(--color-text-secondary);
-  --text-muted: var(--color-text-muted);
-  --cyan: var(--color-accent-cyan);
-  --blue: var(--color-accent-blue);
-  --amber: var(--color-accent-amber);
-  --rose: var(--color-accent-rose);
-}
-
-* {
-  box-sizing: border-box;
-}
-
-body {
-  margin: 0;
-  min-width: 320px;
-  min-height: 100vh;
-  overflow: hidden;
-  background: #030913;
-}
-
-body,
-#app {
-  width: 100%;
-  height: 100%;
-}
-
-#app {
-  min-height: 100vh;
-}
-
-@media (max-width: 1023px) {
-  body {
-    overflow: auto;
-  }
-}
-</style>
 
 <style scoped lang="scss">
 .screen-shell {

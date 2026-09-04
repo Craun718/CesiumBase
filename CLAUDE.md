@@ -27,7 +27,7 @@ Vue 3 + TypeScript + Vite 的 GIS 大屏（数字态势监控中心），以广�
 - 交互遵循“二级菜单 → 功能面板”的层级；命令按钮直接执行，开关和模式用可见的当前状态表达。禁用项要说明原因，悬停、焦点、激活、打开状态必须有明确视觉反馈。
 - 可访问性按现有模式实现：面板使用 `role="region"` 和中文 `aria-label`，菜单用 `aria-expanded` / `aria-controls`，互斥选择用 `role="radiogroup"` / `role="radio"`，开关用 `aria-pressed`，并支持 Escape 关闭面板。
 - 图标统一使用 Bootstrap Icons；界面文案使用中文，标签、状态和模式可用大写英文短标签。面板和控件保持紧凑的小圆角，避免过度装饰、大面积卡片嵌套和影响地图读数的强视觉噪声。
-- 设计令牌集中在 `src/App.vue` 的 Tailwind `@theme` 中，并通过 `:root` 暴露面板、文本和强调色别名。新增界面优先复用这些令牌；组件级状态、布局和修饰样式放在所属组件的 scoped SCSS 中。
+- 设计令牌集中在 `src/styles/global.css` 的 Tailwind `@theme` 中，并通过 `:root` 暴露面板、文本和强调色别名。新增界面优先复用这些令牌；组件级状态、布局和修饰样式放在所属组件的 scoped SCSS 中。
 
 ## 代码结构
 
@@ -36,7 +36,7 @@ Vue 3 + TypeScript + Vite 的 GIS 大屏（数字态势监控中心），以广�
 - `src/map` 是引擎无关层：`types.ts` 定义引擎契约，`mapController.ts` 封装调用和异步挂载保护，`useMapController.ts` 通过 provide/inject 提供实例，`engineProvider.ts` 按构建期模式加载入口。界面层不直接导入 Cesium 或 deck.gl。
 - `src/map/engines/cesium` 是当前唯一重点实现的引擎工作区，按创建 viewer、相机、场景、边界和图源等职责拆分；`src/map/engines/deck` 只保留最小占位。新增地图能力先扩展共享契约，再在 Cesium 引擎实现。
 - `src/stores` 放 Pinia setup store；跨会话数据使用 `localStore` 与 `localStorage`，标签页会话数据使用 `sessionStore` 与 `sessionStorage`。持久化配置由 `pinia-plugin-persistedstate` 处理。
-- 样式入口和全局令牌在 `src/App.vue`；普通 UI 用 scoped SCSS 或 Tailwind，地图引擎生成的 DOM 用引擎目录内的 SCSS 配合 `:deep()` 选择器处理。
+- 样式入口和全局令牌在 `src/styles/global.css`；普通 UI 用 scoped SCSS 或 Tailwind，地图引擎生成的 DOM 用引擎目录内的 SCSS 配合 `:deep()` 选择器处理。
 
 ## 命令
 
@@ -95,7 +95,7 @@ Cesium 底图为天地图 WMTS 影像 + 注记。需要在根目录 `.env` 中�
 
 ## 样式
 
-Tailwind CSS v4 通过 `@tailwindcss/vite` 加载；其入口（`@import "tailwindcss"`）与共享 `@theme` 设计令牌位于 `src/App.vue` 的全局样式块。Sass 可通过 Vite 使用——组件样式保持在组件内。针对地图引擎生成的 DOM（Cesium 部件、deck 画布）的样式必须使用 Vue 的 `:deep()` 选择器（见 `engines/*/*.scss`）。
+Tailwind CSS v4 通过 `@tailwindcss/vite` 加载；其入口（`@import "tailwindcss"`）与共享 `@theme` 设计令牌位于 `src/styles/global.css`。Sass 可通过 Vite 使用——组件样式保持在组件内。针对地图引擎生成的 DOM（Cesium 部件、deck 画布）的样式必须使用 Vue 的 `:deep()` 选择器（见 `engines/*/*.scss`）。
 
 ## 环境与配置
 

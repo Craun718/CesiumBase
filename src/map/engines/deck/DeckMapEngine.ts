@@ -1,5 +1,6 @@
 import { Deck, MapView, type MapViewState } from "@deck.gl/core"
 import type {
+  CameraFlightOptions,
   CameraState,
   CoordinateReadout,
   ImagerySource,
@@ -184,6 +185,10 @@ export class DeckMapEngine implements MapEngine {
     this.setViewState(nextState)
   }
 
+  flyToCameraState(_state: CameraState, _options?: CameraFlightOptions) {
+    // deck.gl 占位阶段：完整相机恢复能力暂不投入新工作
+  }
+
   onCameraStateChange(listener: (state: CameraState) => void) {
     this.cameraStateListeners.add(listener)
 
@@ -226,6 +231,10 @@ export class DeckMapEngine implements MapEngine {
 
   captureScreenshot() {
     // deck.gl 为最小占位引擎，截屏能力待其渲染管线需要时再接入。
+    return undefined
+  }
+
+  captureScreenshotThumbnail() {
     return undefined
   }
 
