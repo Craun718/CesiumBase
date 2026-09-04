@@ -5,6 +5,7 @@ import MapViewport from "./components/MapViewport.vue"
 import FloatingWindow from "./components/FloatingWindow.vue"
 import ViewOperationsPanel from "./components/ViewOperationsPanel.vue"
 import ViewFavoritesPanel from "./components/ViewFavoritesPanel.vue"
+import DataServicePanel from "./features/data/DataServicePanel.vue"
 import {
   mapEngineId,
   provideMapController,
@@ -14,7 +15,7 @@ import {
 } from "./map"
 import { useLocalStore } from "./stores"
 
-type LeftPanelId = "overview" | "distribution" | "map"
+type LeftPanelId = "overview" | "distribution" | "map" | "data"
 type RightMenuId = "view" | "alerts" | "resources"
 type ViewPanelId = "view-position" | "view-camera" | "view-favorites"
 type ViewOperationId = ViewPanelId | "view-fullscreen" | "view-screenshot" | "view-center"
@@ -89,6 +90,7 @@ const leftActions = [
   { id: "overview", label: "态势总览", icon: "bi-speedometer2" },
   { id: "distribution", label: "区域分布", icon: "bi-bar-chart-line" },
   { id: "map", label: "地图操作", icon: "bi-map" },
+  { id: "data", label: "数据服务", icon: "bi-database" },
 ] satisfies Array<{ id: LeftPanelId; label: string; icon: string }>
 
 const rightActions = [
@@ -139,6 +141,16 @@ const expandedRightAction = computed(
 )
 
 function toggleLeftPanel(panel: LeftPanelId) {
+  if (panel === "data") {
+    if (activeLeftPanel.value === panel) {
+      closeLeftPanel()
+      return
+    }
+
+    openLeftPanel(panel)
+    return
+  }
+
   if (panel === "map") {
     expandedLeftMenu.value = expandedLeftMenu.value === panel ? null : panel
     activeLeftPanel.value = null
@@ -434,9 +446,30 @@ function restoreCustomBaseMapUrl() {
   }
 }
 
+/** 引擎挂载完成后从 .env 加载 DEM 服务；URL 留空时静默跳过。 */
+function restoreEnvTerrainService() {
+  const url = import.meta.env.VITE_DEM_SERVICE_URL?.trim()
+
+  if (!url) return
+
+  const token = import.meta.env.VITE_DEM_SERVICE_TOKEN?.trim()
+
+  mapController
+    .setTerrainSource({
+      id: "env-config",
+      name: "默认 DEM 服务",
+      url,
+      authToken: token || undefined,
+    })
+    .catch((error) => {
+      console.warn("[数据服务] 加载 DEM 失败", error)
+    })
+}
+
 disposeMountState = mapController.onMountStateChange((ready) => {
   if (ready) {
     restoreCustomBaseMapUrl()
+    restoreEnvTerrainService()
   }
 })
 
@@ -627,6 +660,8 @@ const resourceLoads = [
               </div>
             </div>
           </FloatingWindow>
+
+          <DataServicePanel v-if="activeLeftPanel === 'data'" @close="closeLeftPanel" />
         </aside>
 
         <div class="map-stage">

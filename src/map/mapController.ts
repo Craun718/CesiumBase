@@ -9,6 +9,7 @@ import type {
   MapEngine,
   MapEngineLoader,
   SceneMode,
+  TerrainSource,
 } from "./types"
 
 const guangxiBounds: MapBounds = {
@@ -201,6 +202,10 @@ export class MapController {
   /** 通过自定义瓦片 URL 切换激活图源；返回是否实际发生替换。 */
   setCustomBaseImagerySource(url: string): boolean {
     return this.engine?.setCustomBaseImagerySource(url) ?? false
+  }
+
+  async setTerrainSource(source?: TerrainSource) {
+    return (await this.engine?.setTerrainSource(source)) ?? false
   }
 
   private notifyMountState(ready: boolean) {

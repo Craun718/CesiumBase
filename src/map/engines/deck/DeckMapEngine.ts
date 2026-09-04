@@ -8,6 +8,7 @@ import type {
   MapCoordinate,
   MapEngine,
   SceneMode,
+  TerrainSource,
 } from "../../types"
 import { createDeckLayers, getDeckTooltip, WebMercatorViewport } from "./layers"
 import { CesiumStyleTerrainController } from "./terrainController"
@@ -261,6 +262,11 @@ export class DeckMapEngine implements MapEngine {
 
   setCustomBaseImagerySource(_url: string): boolean {
     // deck.gl 占位阶段：暂无自定义瓦片 URL 支持
+    return false
+  }
+
+  async setTerrainSource(_source?: TerrainSource): Promise<boolean> {
+    // deck.gl 占位阶段：DEM 服务切换仅在 Cesium 引擎实现。
     return false
   }
 

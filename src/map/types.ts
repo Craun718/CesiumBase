@@ -62,6 +62,17 @@ export interface ImagerySource {
   readonly description?: string
 }
 
+/** 引擎无关的 DEM 地形服务描述。 */
+export interface TerrainSource {
+  readonly id: string
+  readonly name: string
+  readonly url: string
+  /** 静态认证 Token；启用后通过 Authorization: Bearer 头发送 */
+  readonly authToken?: string
+  readonly requestVertexNormals?: boolean
+  readonly requestWaterMask?: boolean
+}
+
 export interface MapEngine {
   mount(container: HTMLElement): void | Promise<void>
   unmount(): void
@@ -116,6 +127,11 @@ export interface MapEngine {
    * 返回是否实际发生替换（false 表示 URL 为空、格式无效或与当前自定义图源一致）。
    */
   setCustomBaseImagerySource(url: string): boolean
+  /**
+   * 切换 DEM 地形服务；source 为空时恢复椭球地形。
+   * 返回是否实际应用，false 表示引擎未就绪、已被新请求取代或不支持。
+   */
+  setTerrainSource(source?: TerrainSource): Promise<boolean>
 }
 
 export type MapEngineFactory = () => MapEngine
