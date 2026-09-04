@@ -3,7 +3,10 @@ import { computed } from "vue"
 import RailPanel from "./RailPanel.vue"
 import type { MapControls } from "./mapControls"
 
-const props = defineProps<{ controls: MapControls }>()
+const props = defineProps<{
+  controls: MapControls
+  placement: "left" | "left-third"
+}>()
 
 const customUrl = computed({
   get: () => props.controls.customBaseMapUrlInput,
@@ -17,7 +20,7 @@ const customUrl = computed({
   <RailPanel
     id="basemap-window"
     class="basemap-window"
-    placement="map-tool"
+    :placement="placement"
     title="底图切换"
     tag="BASEMAP"
     close-label="关闭底图切换"
@@ -73,6 +76,7 @@ const customUrl = computed({
   --window-title-size: 13px;
   --window-tag-size: 9px;
   --window-close-size: 20px;
+  --rail-panel-width: min(240px, calc(100vw - 160px));
   min-width: 0;
 }
 

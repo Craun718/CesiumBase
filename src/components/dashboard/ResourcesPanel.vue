@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import RailPanel from "./RailPanel.vue"
 
+defineProps<{ placement: "right" | "right-third" }>()
+
 const emit = defineEmits<{ close: [] }>()
 
 const resourceLoads = [
@@ -13,7 +15,7 @@ const resourceLoads = [
 <template>
   <RailPanel
     id="right-resources-panel"
-    placement="right"
+    :placement="placement"
     title="资源负载"
     tag="LOAD"
     close-label="关闭资源负载"

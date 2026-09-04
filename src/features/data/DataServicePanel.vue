@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed } from "vue"
-import FloatingWindow from "../../components/FloatingWindow.vue"
+import RailPanel from "../../components/dashboard/RailPanel.vue"
+
+defineProps<{ placement: "left" | "left-third" }>()
 
 const emit = defineEmits<{
   close: []
@@ -12,9 +14,9 @@ const isConfigured = computed(() => demServiceUrl.value.length > 0)
 </script>
 
 <template>
-  <FloatingWindow
+  <RailPanel
     id="left-data-panel"
-    class="rail-panel panel-left"
+    :placement="placement"
     title="数据服务"
     tag="DEM"
     close-label="关闭数据服务"
@@ -45,7 +47,7 @@ const isConfigured = computed(() => demServiceUrl.value.length > 0)
         <small v-else>请在 .env 中设置 VITE_DEM_SERVICE_URL 后重启开发服务器</small>
       </div>
     </div>
-  </FloatingWindow>
+  </RailPanel>
 </template>
 
 <style scoped lang="scss">

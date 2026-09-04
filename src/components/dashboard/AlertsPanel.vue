@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import RailPanel from "./RailPanel.vue"
 
+defineProps<{ placement: "right" | "right-third" }>()
+
 const emit = defineEmits<{ close: [] }>()
 
 const alerts = [
@@ -14,7 +16,7 @@ const alerts = [
 <template>
   <RailPanel
     id="right-alerts-panel"
-    placement="right"
+    :placement="placement"
     title="实时告警"
     tag="ALERT"
     tag-tone="alert"

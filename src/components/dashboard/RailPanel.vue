@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue"
 import FloatingWindow from "../FloatingWindow.vue"
-
-type RailPanelPlacement = "left" | "left-third" | "right" | "right-third" | "map-tool"
+import type { RailPanelPlacement } from "./operations"
 
 const props = withDefaults(
   defineProps<{

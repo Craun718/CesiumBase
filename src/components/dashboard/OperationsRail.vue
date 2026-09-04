@@ -19,7 +19,6 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   command: [commandId: CommandId]
-  closePanels: [actionId: ActionId]
 }>()
 
 const expandedMenuId = ref<ActionId | null>(null)
@@ -85,7 +84,7 @@ watch(expandedMenuId, (nextActionId, previousActionId) => {
   if (!previousActionId || previousActionId === nextActionId) return
 
   activePanelId.value = null
-  emit("closePanels", previousActionId)
+  props.getExternalPanel?.(previousActionId)?.close()
 })
 </script>
 

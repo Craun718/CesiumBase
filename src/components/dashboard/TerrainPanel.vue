@@ -2,14 +2,17 @@
 import RailPanel from "./RailPanel.vue"
 import type { MapControls } from "./mapControls"
 
-defineProps<{ controls: MapControls }>()
+defineProps<{
+  controls: MapControls
+  placement: "left" | "left-third"
+}>()
 </script>
 
 <template>
   <RailPanel
     id="terrain-scale-window"
     class="terrain-scale-window"
-    placement="map-tool"
+    :placement="placement"
     title="地形起伏倍率"
     tag="TERRAIN"
     close-label="关闭地形突出"

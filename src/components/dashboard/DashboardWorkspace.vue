@@ -351,6 +351,20 @@ const mapMenuItems = computed<Array<OperationMenuItem<MapOperationId>>>(() =>
   })),
 )
 
+function getLeftExternalPanel(actionId: LeftActionId) {
+  if (actionId !== "map") return
+
+  if (controls.terrainEnabled) {
+    return { controlId: "terrain-scale-window", close: closeTerrainPanel }
+  }
+
+  if (controls.basemapOpen) {
+    return { controlId: "basemap-window", close: closeBasemapPanel }
+  }
+
+  return undefined
+}
+
 const viewMenuItems = computed<Array<OperationMenuItem<ViewOperationId>>>(() =>
   viewOperations.map((operation) => ({
     ...operation,
@@ -371,21 +385,27 @@ function activateRightCommand(commandId: RightCommandId) {
 function getRightExternalPanel(actionId: RightActionId) {
   if (actionId !== "view") return undefined
 
-  if (controls.viewPositionOpen) return { controlId: "right-view-position-panel" }
-  if (controls.viewCameraOpen) return { controlId: "right-view-camera-panel" }
-  if (controls.viewFavoritesOpen) return { controlId: "right-view-favorites-panel" }
+  if (controls.viewPositionOpen) {
+    return { controlId: "right-view-position-panel", close: closeViewPanel }
+  }
+
+  if (controls.viewCameraOpen) {
+    return { controlId: "right-view-camera-panel", close: closeViewPanel }
+  }
+
+  if (controls.viewFavoritesOpen) {
+    return { controlId: "right-view-favorites-panel", close: closeViewPanel }
+  }
 
   return undefined
 }
 
-function closeRightPanels(actionId: RightActionId) {
-  if (actionId === "view") {
-    closeViewPanel()
-  }
-}
-
 function getLeftPanelPlacement(placement: RailPanelPlacement) {
   return placement === "left-third" ? placement : "left"
+}
+
+function getRightPanelPlacement(placement: RailPanelPlacement) {
+  return placement === "right-third" ? placement : "right"
 }
 
 const readout = ref<CoordinateReadout | undefined>(mapController.getCoordinateReadout())
@@ -425,7 +445,12 @@ onBeforeUnmount(() => {
 <template>
   <main class="dashboard-body">
     <div class="content-grid">
-      <OperationsRail side="left" label="左侧操作" :actions="leftActions">
+      <OperationsRail
+        side="left"
+        label="左侧操作"
+        :actions="leftActions"
+        :get-external-panel="getLeftExternalPanel"
+      >
         <template #menu="{ action, close }">
           <OperationsMenu
             v-if="action.id === 'map'"
@@ -440,6 +465,18 @@ onBeforeUnmount(() => {
         </template>
 
         <template #panels="{ activePanelId, panelPlacement, closePanel }">
+          <BasemapPanel
+            v-if="controls.basemapOpen"
+            :controls="controls"
+            :placement="getLeftPanelPlacement(panelPlacement)"
+          />
+
+          <TerrainPanel
+            v-if="controls.terrainEnabled"
+            :controls="controls"
+            :placement="getLeftPanelPlacement(panelPlacement)"
+          />
+
           <OverviewPanel
             v-if="activePanelId === 'overview'"
             :placement="getLeftPanelPlacement(panelPlacement)"
@@ -452,15 +489,15 @@ onBeforeUnmount(() => {
             @close="closePanel"
           />
 
-          <DataServicePanel v-if="activePanelId === 'data'" @close="closePanel" />
+          <DataServicePanel
+            v-if="activePanelId === 'data'"
+            :placement="getLeftPanelPlacement(panelPlacement)"
+            @close="closePanel"
+          />
         </template>
       </OperationsRail>
 
       <MapStage :controls="controls" />
-
-      <BasemapPanel v-if="controls.basemapOpen" :controls="controls" />
-
-      <TerrainPanel v-if="controls.terrainEnabled" :controls="controls" />
 
       <OperationsRail
         side="right"
@@ -469,7 +506,6 @@ onBeforeUnmount(() => {
         :commands="rightCommands"
         :get-external-panel="getRightExternalPanel"
         @command="activateRightCommand"
-        @close-panels="closeRightPanels"
       >
         <template #menu="{ close }">
           <OperationsMenu
@@ -482,11 +518,11 @@ onBeforeUnmount(() => {
           />
         </template>
 
-        <template #panels="{ activePanelId, closePanel }">
+        <template #panels="{ activePanelId, panelPlacement, closePanel }">
           <RailPanel
             v-if="controls.viewPositionOpen"
             id="right-view-position-panel"
-            placement="right-third"
+            :placement="getRightPanelPlacement(panelPlacement)"
             title="视角定位"
             tag="VIEW"
             close-label="关闭视角定位"
@@ -498,7 +534,7 @@ onBeforeUnmount(() => {
           <RailPanel
             v-if="controls.viewCameraOpen"
             id="right-view-camera-panel"
-            placement="right-third"
+            :placement="getRightPanelPlacement(panelPlacement)"
             title="相机参数"
             tag="CAMERA"
             close-label="关闭相机参数"
@@ -510,7 +546,7 @@ onBeforeUnmount(() => {
           <RailPanel
             v-if="controls.viewFavoritesOpen"
             id="right-view-favorites-panel"
-            placement="right-third"
+            :placement="getRightPanelPlacement(panelPlacement)"
             title="视图收藏"
             tag="FAVORITES"
             close-label="关闭视图收藏"
@@ -519,9 +555,17 @@ onBeforeUnmount(() => {
             <ViewFavoritesPanel />
           </RailPanel>
 
-          <AlertsPanel v-if="activePanelId === 'alerts'" @close="closePanel" />
+          <AlertsPanel
+            v-if="activePanelId === 'alerts'"
+            :placement="getRightPanelPlacement(panelPlacement)"
+            @close="closePanel"
+          />
 
-          <ResourcesPanel v-if="activePanelId === 'resources'" @close="closePanel" />
+          <ResourcesPanel
+            v-if="activePanelId === 'resources'"
+            :placement="getRightPanelPlacement(panelPlacement)"
+            @close="closePanel"
+          />
         </template>
       </OperationsRail>
     </div>

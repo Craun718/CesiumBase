@@ -18,6 +18,7 @@ export type RailPanelPlacement = "left" | "left-third" | "right" | "right-third"
 
 export type ExternalPanelControl = {
   controlId: string
+  close: () => void
 }
 
 export type OperationKind = "command" | "toggle" | "mode" | "panel"
