@@ -377,9 +377,16 @@ onBeforeUnmount(() => {
 <template>
   <div class="view-favorites">
     <div class="toolbar">
-      <label class="search-field">
+      <label class="search-field"
+        >相机参数
         <span class="sr-only">搜索收藏视角</span>
-        <input v-model="search" type="search" placeholder="搜索收藏名称" />
+        <input
+          id="view-favorite-search"
+          v-model="search"
+          type="search"
+          name="viewFavoriteSearch"
+          placeholder="搜索收藏名称"
+        />
       </label>
       <button
         class="primary-button"

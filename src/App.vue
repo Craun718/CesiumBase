@@ -18,7 +18,7 @@ type LeftPanelId = "overview" | "distribution" | "map"
 type RightMenuId = "view" | "alerts" | "resources"
 type ViewPanelId = "view-position" | "view-camera" | "view-favorites"
 type ViewOperationId = ViewPanelId | "view-fullscreen" | "view-screenshot" | "view-center"
-type RightPanelId = ViewPanelId | "alerts" | "resources"
+type RightPanelId = "alerts" | "resources"
 type RightCommandId = "return-guangxi"
 type MapOperationId =
   | "scene-mode"
@@ -31,6 +31,7 @@ type MapOperationId =
 
 const activeLeftPanel = ref<LeftPanelId | null>(null)
 const activeRightPanel = ref<RightPanelId | null>(null)
+const activeViewPanel = ref<ViewPanelId | null>(null)
 const expandedLeftMenu = ref<LeftPanelId | null>(null)
 const expandedRightMenu = ref<RightMenuId | null>(null)
 const sceneMode = ref<SceneMode>("3d")
@@ -160,7 +161,7 @@ function toggleLeftPanel(panel: LeftPanelId) {
 
 function toggleRightAction(action: RightMenuId) {
   if (action === "view") {
-    if (expandedRightMenu.value === action && activeRightPanel.value === null) {
+    if (expandedRightMenu.value === action) {
       expandedRightMenu.value = null
       return
     }
@@ -192,7 +193,7 @@ function activateRightCommand(commandId: RightCommandId) {
 
 function isRightActionActive(action: RightMenuId) {
   if (action === "view") {
-    return expandedRightMenu.value === action || activeRightPanel.value?.startsWith("view-")
+    return expandedRightMenu.value === action || activeViewPanel.value !== null
   }
 
   return expandedRightMenu.value === action || activeRightPanel.value === action
@@ -203,8 +204,8 @@ function getRightActionControls(action: RightMenuId) {
     return action === "view" ? "right-view-secondary-menu" : "right-secondary-menu"
   }
 
-  if (action === "view" && activeRightPanel.value?.startsWith("view-")) {
-    return `right-${activeRightPanel.value}-panel`
+  if (action === "view" && activeViewPanel.value) {
+    return `right-${activeViewPanel.value}-panel`
   }
 
   return `right-${action}-panel`
@@ -218,6 +219,10 @@ function openLeftPanel(panel: LeftPanelId) {
 function openRightPanel(panel: RightPanelId) {
   expandedRightMenu.value = null
   activeRightPanel.value = panel
+}
+
+function openViewPanel(panel: ViewPanelId) {
+  activeViewPanel.value = panel
 }
 
 function openRightActionPanel(action: RightMenuId) {
@@ -236,7 +241,7 @@ function activateViewOperation(operationId: ViewOperationId) {
     operationId === "view-camera" ||
     operationId === "view-favorites"
   ) {
-    openRightPanel(operationId)
+    openViewPanel(operationId)
     return
   }
 
@@ -272,8 +277,12 @@ function closeLeftPanel() {
 }
 
 function closeRightPanel() {
-  expandedRightMenu.value = null
   activeRightPanel.value = null
+  expandedRightMenu.value = null
+}
+
+function closeViewPanel() {
+  activeViewPanel.value = null
 }
 
 function isMapOperationDisabled(operationId: MapOperationId) {
@@ -736,7 +745,7 @@ const resourceLoads = [
           </div>
 
           <FloatingWindow
-            v-if="expandedRightMenu === 'view' && activeRightPanel === null"
+            v-if="expandedRightMenu === 'view'"
             id="right-view-secondary-menu"
             class="rail-panel panel-right rail-submenu"
             title="视角操作"
@@ -775,9 +784,7 @@ const resourceLoads = [
           </FloatingWindow>
 
           <FloatingWindow
-            v-else-if="
-              expandedRightAction && expandedRightMenu !== 'view' && activeRightPanel === null
-            "
+            v-else-if="expandedRightAction && activeRightPanel === null"
             id="right-secondary-menu"
             class="rail-panel panel-right rail-submenu"
             :title="expandedRightAction.label"
@@ -797,37 +804,37 @@ const resourceLoads = [
           </FloatingWindow>
 
           <FloatingWindow
-            v-if="activeRightPanel === 'view-position'"
+            v-if="activeViewPanel === 'view-position'"
             id="right-view-position-panel"
-            class="rail-panel panel-right"
+            class="rail-panel panel-right panel-right-third"
             title="视角定位"
             tag="VIEW"
             close-label="关闭视角定位"
-            @close="closeRightPanel"
+            @close="closeViewPanel"
           >
             <ViewOperationsPanel section="position" />
           </FloatingWindow>
 
           <FloatingWindow
-            v-if="activeRightPanel === 'view-camera'"
+            v-if="activeViewPanel === 'view-camera'"
             id="right-view-camera-panel"
-            class="rail-panel panel-right"
+            class="rail-panel panel-right panel-right-third"
             title="相机参数"
             tag="CAMERA"
             close-label="关闭相机参数"
-            @close="closeRightPanel"
+            @close="closeViewPanel"
           >
             <ViewOperationsPanel section="camera" />
           </FloatingWindow>
 
           <FloatingWindow
-            v-if="activeRightPanel === 'view-favorites'"
+            v-if="activeViewPanel === 'view-favorites'"
             id="right-view-favorites-panel"
-            class="rail-panel panel-right"
+            class="rail-panel panel-right panel-right-third"
             title="视图收藏"
             tag="FAVORITES"
             close-label="关闭视图收藏"
-            @close="closeRightPanel"
+            @close="closeViewPanel"
           >
             <ViewFavoritesPanel />
           </FloatingWindow>
@@ -1106,6 +1113,10 @@ const resourceLoads = [
 
 .panel-right {
   right: calc(100% + var(--rail-map-gap));
+}
+
+.panel-right-third {
+  right: calc(100% + 2 * var(--rail-map-gap) + var(--map-menu-width));
 }
 
 .submenu-option {
