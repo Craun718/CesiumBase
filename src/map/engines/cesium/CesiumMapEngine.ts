@@ -1,7 +1,28 @@
-import type * as Cesium from "cesium"
-import type { MapEngine, MapBounds, SceneMode } from "../../types"
+import * as Cesium from "cesium"
+import type {
+  CameraState,
+  CoordinateReadout,
+  ImagerySource,
+  MapCoordinate,
+  MapEngine,
+  MapBounds,
+  SceneMode,
+} from "../../types"
 import { createViewer } from "./createViewer"
-import { flyToBounds, setInitialCamera } from "./cameraOperations"
+import {
+  getCameraHeading,
+  captureScreenshot,
+  flyToCoordinate,
+  flyToBounds,
+  getCameraState,
+  onCameraHeadingChange,
+  onCameraStateChange,
+  resetCameraNorth,
+  setCameraHeading,
+  setCameraState,
+  setInitialCamera,
+} from "./cameraOperations"
+import { getPointerReadout, getViewReadout } from "./pointerReadout"
 import {
   configureScene,
   setNorthLock,
@@ -10,16 +31,22 @@ import {
   setTerrainExaggeration,
   setTerrainExaggerationScale,
 } from "./sceneOperations"
-import {
-  getCameraHeading,
-  onCameraHeadingChange,
-  resetCameraNorth,
-  setCameraHeading,
-} from "./cameraOperations"
 import { addProvinceBoundaries } from "./provinceBoundaries"
+import {
+  applyCesiumCustomUrlSource,
+  applyCesiumImagerySource,
+  getCurrentCesiumImagerySourceId,
+} from "./baseImagery"
+import { listCesiumImagerySources } from "./imagerySources"
 
 export class CesiumMapEngine implements MapEngine {
   private viewer?: Cesium.Viewer
+  private pointerHandler?: Cesium.ScreenSpaceEventHandler
+  private disposePointerReadout?: () => void
+  private coordinateReadout?: CoordinateReadout
+  private lastPointerPosition?: { x: number; y: number }
+  private coordinateReadoutRefreshedAt = 0
+  private readonly coordinateReadoutListeners = new Set<(readout: CoordinateReadout) => void>()
 
   async mount(container: HTMLElement) {
     if (this.viewer) return
@@ -30,14 +57,50 @@ export class CesiumMapEngine implements MapEngine {
     configureScene(viewer)
     setInitialCamera(viewer)
     void addProvinceBoundaries(viewer)
+
+    this.pointerHandler = new Cesium.ScreenSpaceEventHandler(viewer.canvas)
+    this.pointerHandler.setInputAction(({ endPosition }: { endPosition: Cesium.Cartesian2 }) => {
+      this.lastPointerPosition = { x: endPosition.x, y: endPosition.y }
+      this.setCoordinateReadout(getPointerReadout(viewer, endPosition))
+    }, Cesium.ScreenSpaceEventType.MOUSE_MOVE)
+
+    const removeSceneListener = viewer.scene.preRender.addEventListener(() => {
+      const now = performance.now()
+
+      // 读数跟随地形与相机状态变化；鼠标移动仍立即刷新，这里是兜底的节流同步。
+      if (now - this.coordinateReadoutRefreshedAt < 100) return
+
+      this.coordinateReadoutRefreshedAt = now
+      this.refreshCoordinateReadout(viewer)
+    })
+    const handlePointerLeave = () => {
+      this.lastPointerPosition = undefined
+      this.coordinateReadoutRefreshedAt = performance.now()
+      this.setCoordinateReadout(getViewReadout(viewer))
+    }
+    viewer.canvas.addEventListener("pointerleave", handlePointerLeave)
+    this.disposePointerReadout = () => {
+      removeSceneListener()
+      viewer.canvas.removeEventListener("pointerleave", handlePointerLeave)
+    }
+
+    this.refreshCoordinateReadout(viewer)
   }
 
   unmount() {
+    this.disposePointerReadout?.()
+    this.disposePointerReadout = undefined
+    this.pointerHandler?.destroy()
+    this.pointerHandler = undefined
+
     if (this.viewer && !this.viewer.isDestroyed()) {
       this.viewer.destroy()
     }
 
     this.viewer = undefined
+    this.lastPointerPosition = undefined
+    this.coordinateReadout = undefined
+    this.coordinateReadoutListeners.clear()
   }
 
   flyToBounds(bounds: MapBounds) {
@@ -45,6 +108,14 @@ export class CesiumMapEngine implements MapEngine {
 
     if (viewer) {
       flyToBounds(viewer, bounds)
+    }
+  }
+
+  flyToCoordinate(coordinate: MapCoordinate) {
+    const viewer = this.getActiveViewer()
+
+    if (viewer) {
+      flyToCoordinate(viewer, coordinate)
     }
   }
 
@@ -116,12 +187,124 @@ export class CesiumMapEngine implements MapEngine {
     return viewer ? onCameraHeadingChange(viewer, listener) : () => {}
   }
 
+  getCameraState(): CameraState {
+    const viewer = this.getActiveViewer()
+
+    return viewer
+      ? getCameraState(viewer)
+      : { longitude: 108.25, latitude: 23.7, height: 700_000, heading: 0, pitch: -90 }
+  }
+
+  setCameraState(state: Partial<Omit<CameraState, "longitude" | "latitude">>) {
+    const viewer = this.getActiveViewer()
+
+    if (viewer) {
+      setCameraState(viewer, state)
+    }
+  }
+
+  onCameraStateChange(listener: (state: CameraState) => void) {
+    const viewer = this.getActiveViewer()
+
+    return viewer ? onCameraStateChange(viewer, listener) : () => {}
+  }
+
+  getCoordinateReadout(): CoordinateReadout | undefined {
+    return this.coordinateReadout
+  }
+
+  onCoordinateReadoutChange(listener: (readout: CoordinateReadout) => void) {
+    this.coordinateReadoutListeners.add(listener)
+
+    if (this.coordinateReadout) {
+      listener(this.coordinateReadout)
+    }
+
+    return () => {
+      this.coordinateReadoutListeners.delete(listener)
+    }
+  }
+
+  async toggleSceneFullscreen() {
+    const container = this.getActiveViewer()?.container
+
+    if (!container) return false
+
+    if (document.fullscreenElement === container) {
+      await document.exitFullscreen()
+      return true
+    }
+
+    await container.requestFullscreen()
+    return true
+  }
+
+  captureScreenshot() {
+    const viewer = this.getActiveViewer()
+
+    return viewer ? captureScreenshot(viewer) : undefined
+  }
+
+  listBaseImagerySources(): ImagerySource[] {
+    return listCesiumImagerySources()
+  }
+
+  getBaseImagerySourceId(): string | undefined {
+    const viewer = this.getActiveViewer()
+
+    return viewer ? getCurrentCesiumImagerySourceId(viewer) : undefined
+  }
+
+  setBaseImagerySource(id: string): boolean {
+    const viewer = this.getActiveViewer()
+
+    return viewer ? applyCesiumImagerySource(viewer, id) : false
+  }
+
+  setCustomBaseImagerySource(url: string): boolean {
+    const viewer = this.getActiveViewer()
+
+    return viewer ? applyCesiumCustomUrlSource(viewer, url) : false
+  }
+
   private getActiveViewer() {
     if (this.viewer && !this.viewer.isDestroyed()) {
       return this.viewer
     }
 
     return undefined
+  }
+
+  private setCoordinateReadout(readout: CoordinateReadout) {
+    const previous = this.coordinateReadout
+    if (
+      previous &&
+      previous.longitude === readout.longitude &&
+      previous.latitude === readout.latitude &&
+      previous.height === readout.height &&
+      previous.source === readout.source
+    ) {
+      return
+    }
+
+    this.coordinateReadout = readout
+
+    for (const listener of this.coordinateReadoutListeners) {
+      listener(readout)
+    }
+  }
+
+  private refreshCoordinateReadout(viewer: Cesium.Viewer) {
+    if (!this.lastPointerPosition) {
+      this.setCoordinateReadout(getViewReadout(viewer))
+      return
+    }
+
+    const pointerPosition = new Cesium.Cartesian2(
+      this.lastPointerPosition.x,
+      this.lastPointerPosition.y,
+    )
+    this.setCoordinateReadout(getPointerReadout(viewer, pointerPosition))
   }
 }
 

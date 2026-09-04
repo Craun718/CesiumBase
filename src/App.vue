@@ -1,33 +1,84 @@
 <script setup lang="ts">
-import { computed, ref } from "vue"
+import { computed, onBeforeUnmount, onMounted, ref } from "vue"
 import ErrorBoundary from "./components/ErrorBoundary.vue"
 import MapViewport from "./components/MapViewport.vue"
 import FloatingWindow from "./components/FloatingWindow.vue"
-import { mapEngineId, provideMapController, type SceneMode } from "./map"
+import ViewOperationsPanel from "./components/ViewOperationsPanel.vue"
+import {
+  mapEngineId,
+  provideMapController,
+  type CoordinateReadout,
+  type ImagerySource,
+  type SceneMode,
+} from "./map"
+import { useLocalStore } from "./stores"
 
 type LeftPanelId = "overview" | "distribution" | "map"
-type RightPanelId = "alerts" | "resources"
+type RightMenuId = "view" | "alerts" | "resources"
+type ViewPanelId = "view-position" | "view-camera"
+type ViewOperationId = ViewPanelId | "view-fullscreen" | "view-screenshot"
+type RightPanelId = ViewPanelId | "alerts" | "resources"
+type RightCommandId = "return-guangxi"
 type MapOperationId =
-  | "return-guangxi"
   | "scene-mode"
   | "rotate-browse"
   | "north-lock"
   | "terrain"
+  | "basemap"
   | "compass"
 
 const activeLeftPanel = ref<LeftPanelId | null>(null)
 const activeRightPanel = ref<RightPanelId | null>(null)
 const expandedLeftMenu = ref<LeftPanelId | null>(null)
-const expandedRightMenu = ref<RightPanelId | null>(null)
+const expandedRightMenu = ref<RightMenuId | null>(null)
 const sceneMode = ref<SceneMode>("3d")
 const rotateEnabled = ref(false)
 const northLocked = ref(false)
 const terrainEnabled = ref(false)
 const compassVisible = ref(true)
 const terrainScale = ref(1)
+const basemapOpen = ref(false)
+// 图源列表在打开底图面板时从引擎拉取；激活 id 默认与注册表首项对齐，避免状态栏空白。
+const basemapSources = ref<ImagerySource[]>([])
+const activeBasemapId = ref<string | undefined>("tianditu-img")
+const localStore = useLocalStore()
+const CUSTOM_BASEMAP_ID = "custom"
+// 自定义底图 URL 输入框，初始值来自 localStore（localStorage 持久化）
+const customBaseMapUrlInput = ref<string>(localStore.customBaseMapUrl)
 const mapController = provideMapController()
+let disposeMountState: (() => void) | undefined
+let disposeCoordinateReadout: (() => void) | undefined
+const coordinateReadout = ref<CoordinateReadout | undefined>(mapController.getCoordinateReadout())
+
+const activeBasemapLabel = computed(() => {
+  const id = activeBasemapId.value
+  if (!id) return "天地图影像"
+  if (id === CUSTOM_BASEMAP_ID) return "自定义 URL"
+  const source = basemapSources.value.find((item) => item.id === id)
+  return source?.label ?? id
+})
 
 const mapEngineLabel = mapEngineId === "deck-gl" ? "DECK.GL" : "CESIUM"
+
+const coordinateReadoutText = computed(() => {
+  if (!coordinateReadout.value) {
+    return "经度 -- · 纬度 -- · 高程 --"
+  }
+
+  const { longitude, latitude, height } = coordinateReadout.value
+
+  return `经度 ${longitude.toFixed(5)}° · 纬度 ${latitude.toFixed(5)}° · 高程 ${Math.round(
+    height,
+  )}m`
+})
+
+const coordinateReadoutTitle = computed(() =>
+  !coordinateReadout.value
+    ? "等待地图读数就绪"
+    : coordinateReadout.value.source === "pointer"
+      ? "鼠标位置"
+      : "视图中心",
+)
 
 const leftActions = [
   { id: "overview", label: "态势总览", icon: "bi-speedometer2" },
@@ -36,16 +87,33 @@ const leftActions = [
 ] satisfies Array<{ id: LeftPanelId; label: string; icon: string }>
 
 const rightActions = [
+  { id: "view", label: "视角操作", icon: "bi-eye" },
   { id: "alerts", label: "实时告警", icon: "bi-bell" },
   { id: "resources", label: "资源负载", icon: "bi-cpu" },
-] satisfies Array<{ id: RightPanelId; label: string; icon: string }>
+] satisfies Array<{ id: RightMenuId; label: string; icon: string }>
+
+const rightCommands = [
+  { id: "return-guangxi", label: "返回广西", icon: "bi-geo-alt" },
+] satisfies Array<{ id: RightCommandId; label: string; icon: string }>
+
+const viewOperations = [
+  { id: "view-position", label: "视角定位", icon: "bi-crosshair", kind: "panel" },
+  { id: "view-camera", label: "相机参数", icon: "bi-camera-reels", kind: "panel" },
+  { id: "view-fullscreen", label: "场景全屏", icon: "bi-arrows-fullscreen", kind: "command" },
+  { id: "view-screenshot", label: "场景截屏下载", icon: "bi-camera", kind: "command" },
+] satisfies Array<{
+  id: ViewOperationId
+  label: string
+  icon: string
+  kind: "panel" | "command"
+}>
 
 const mapOperations = [
-  { id: "return-guangxi", label: "返回广西", icon: "bi-geo-alt", kind: "command" },
   { id: "scene-mode", label: "2D/3D切换", icon: "bi-layers", kind: "mode" },
   { id: "rotate-browse", label: "旋转浏览", icon: "bi-arrow-repeat", kind: "toggle" },
   { id: "north-lock", label: "正北锁定", icon: "bi-compass", kind: "toggle" },
   { id: "terrain", label: "地形突出", icon: "bi-mountain", kind: "command" },
+  { id: "basemap", label: "底图切换", icon: "bi-grid-1x2", kind: "command" },
   { id: "compass", label: "显示指北针", icon: "bi-signpost-2", kind: "toggle" },
 ] satisfies Array<{
   id: MapOperationId
@@ -83,19 +151,56 @@ function toggleLeftPanel(panel: LeftPanelId) {
   activeLeftPanel.value = null
 }
 
-function toggleRightPanel(panel: RightPanelId) {
-  if (activeRightPanel.value === panel) {
+function toggleRightAction(action: RightMenuId) {
+  if (action === "view") {
+    if (expandedRightMenu.value === action && activeRightPanel.value === null) {
+      expandedRightMenu.value = null
+      return
+    }
+
+    expandedRightMenu.value = action
+    activeRightPanel.value = null
+    return
+  }
+
+  if (activeRightPanel.value === action) {
     closeRightPanel()
     return
   }
 
-  if (expandedRightMenu.value === panel) {
-    openRightPanel(panel)
+  if (expandedRightMenu.value === action) {
+    openRightPanel(action)
     return
   }
 
-  expandedRightMenu.value = panel
+  expandedRightMenu.value = action
   activeRightPanel.value = null
+}
+
+function activateRightCommand(commandId: RightCommandId) {
+  if (commandId === "return-guangxi") {
+    mapController.returnToGuangxi()
+  }
+}
+
+function isRightActionActive(action: RightMenuId) {
+  if (action === "view") {
+    return expandedRightMenu.value === action || activeRightPanel.value?.startsWith("view-")
+  }
+
+  return expandedRightMenu.value === action || activeRightPanel.value === action
+}
+
+function getRightActionControls(action: RightMenuId) {
+  if (expandedRightMenu.value === action) {
+    return action === "view" ? "right-view-secondary-menu" : "right-secondary-menu"
+  }
+
+  if (action === "view" && activeRightPanel.value?.startsWith("view-")) {
+    return `right-${activeRightPanel.value}-panel`
+  }
+
+  return `right-${action}-panel`
 }
 
 function openLeftPanel(panel: LeftPanelId) {
@@ -106,6 +211,39 @@ function openLeftPanel(panel: LeftPanelId) {
 function openRightPanel(panel: RightPanelId) {
   expandedRightMenu.value = null
   activeRightPanel.value = panel
+}
+
+function openRightActionPanel(action: RightMenuId) {
+  if (action === "view") return
+
+  openRightPanel(action)
+}
+
+function activateViewOperation(operationId: ViewOperationId) {
+  if (operationId === "view-position" || operationId === "view-camera") {
+    openRightPanel(operationId)
+    return
+  }
+
+  if (operationId === "view-fullscreen") {
+    mapController.toggleSceneFullscreen().catch(() => {})
+    return
+  }
+
+  const dataUrl = mapController.captureScreenshot()
+  if (!dataUrl) return
+
+  const link = document.createElement("a")
+  link.href = dataUrl
+  link.download = `scene-${createSceneTimestamp()}.png`
+  link.click()
+}
+
+function createSceneTimestamp() {
+  const now = new Date()
+  const pad = (value: number) => String(value).padStart(2, "0")
+
+  return `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`
 }
 
 function closeLeftPanel() {
@@ -133,11 +271,6 @@ function isMapOperationActive(operationId: MapOperationId) {
 function activateMapOperation(operationId: MapOperationId) {
   if (isMapOperationDisabled(operationId)) return
 
-  if (operationId === "return-guangxi") {
-    mapController.returnToGuangxi()
-    return
-  }
-
   if (operationId === "scene-mode") {
     const nextMode: SceneMode = sceneMode.value === "3d" ? "2d" : "3d"
     sceneMode.value = nextMode
@@ -164,10 +297,29 @@ function activateMapOperation(operationId: MapOperationId) {
   }
 
   if (operationId === "terrain") {
+    // 与底图切换互斥：打开地形面板前先关闭底图面板。
+    if (basemapOpen.value) {
+      basemapOpen.value = false
+    }
+
     if (terrainEnabled.value) return
 
     terrainEnabled.value = true
     mapController.setTerrainExaggeration(true, terrainScale.value)
+
+    return
+  }
+
+  if (operationId === "basemap") {
+    // 与地形突出互斥：打开底图面板前先关闭地形面板并回退引擎夸张设置。
+    if (terrainEnabled.value) {
+      terrainEnabled.value = false
+      mapController.setTerrainExaggeration(false, terrainScale.value)
+    }
+
+    if (basemapOpen.value) return
+
+    openBasemapPanel()
 
     return
   }
@@ -192,6 +344,71 @@ function closeTerrainPanel() {
   terrainEnabled.value = false
   mapController.setTerrainExaggeration(false, terrainScale.value)
 }
+
+/** 打开底图面板并同步引擎当前图源列表与激活项；引擎未挂载时静默忽略。 */
+function openBasemapPanel() {
+  const sources = mapController.listBaseImagerySources()
+  if (sources.length > 0) {
+    basemapSources.value = sources
+    activeBasemapId.value = mapController.getBaseImagerySourceId()
+  }
+
+  basemapOpen.value = true
+}
+
+function closeBasemapPanel() {
+  basemapOpen.value = false
+}
+
+/** 切换图源后保留面板，便于连续对比；关闭走面板右上角 X。 */
+function selectBasemap(id: string) {
+  const applied = mapController.setBaseImagerySource(id)
+  if (applied) {
+    activeBasemapId.value = id
+  }
+}
+
+/** 应用自定义瓦片 URL：写入 localStore 持久化并切换到自定义图源。 */
+function applyCustomBasemap() {
+  const url = customBaseMapUrlInput.value.trim()
+  if (!url) return
+
+  const applied = mapController.setCustomBaseImagerySource(url)
+  if (!applied) return
+
+  localStore.customBaseMapUrl = url
+  activeBasemapId.value = CUSTOM_BASEMAP_ID
+}
+
+/** 引擎挂载完成后，若 localStore 已有自定义 URL 则自动恢复。 */
+function restoreCustomBaseMapUrl() {
+  const url = localStore.customBaseMapUrl.trim()
+  if (!url) return
+
+  const applied = mapController.setCustomBaseImagerySource(url)
+  if (applied) {
+    activeBasemapId.value = CUSTOM_BASEMAP_ID
+  }
+}
+
+disposeMountState = mapController.onMountStateChange((ready) => {
+  if (ready) {
+    restoreCustomBaseMapUrl()
+  }
+})
+
+onBeforeUnmount(() => {
+  disposeMountState?.()
+  disposeMountState = undefined
+  disposeCoordinateReadout?.()
+  disposeCoordinateReadout = undefined
+})
+
+onMounted(() => {
+  disposeCoordinateReadout = mapController.onCoordinateReadoutChange((readout) => {
+    coordinateReadout.value = readout
+  })
+})
 
 const overviewMetrics = [
   { label: "监测目标", value: "1,286", trend: "+24" },
@@ -257,10 +474,10 @@ const resourceLoads = [
               :aria-controls="
                 expandedLeftMenu === action.id ? 'left-secondary-menu' : `left-${action.id}-panel`
               "
-              :data-tip="action.label"
               @click="toggleLeftPanel(action.id)"
             >
               <i class="bi" :class="action.icon" aria-hidden="true"></i>
+              <span>{{ action.label }}</span>
             </button>
           </div>
 
@@ -274,14 +491,16 @@ const resourceLoads = [
             close-label="关闭地图操作二级菜单"
             @close="expandedLeftMenu = null"
           >
-            <div class="map-operation-list">
+            <div class="submenu-operation-list">
               <button
                 v-for="operation in mapOperations"
                 :key="operation.id"
                 class="submenu-option map-operation"
                 :class="{
                   'is-active': operation.kind === 'toggle' && isMapOperationActive(operation.id),
-                  'is-open': operation.id === 'terrain' && terrainEnabled,
+                  'is-open':
+                    (operation.id === 'terrain' && terrainEnabled) ||
+                    (operation.id === 'basemap' && basemapOpen),
                 }"
                 type="button"
                 :disabled="isMapOperationDisabled(operation.id)"
@@ -377,6 +596,57 @@ const resourceLoads = [
         </div>
 
         <FloatingWindow
+          v-if="basemapOpen"
+          id="basemap-window"
+          class="basemap-window"
+          title="底图切换"
+          tag="BASEMAP"
+          close-label="关闭底图切换"
+          @close="closeBasemapPanel"
+        >
+          <div v-if="basemapSources.length === 0" class="basemap-empty">
+            当前引擎暂无可切换的底图
+          </div>
+          <div v-else class="basemap-options" role="radiogroup" aria-label="底图切换">
+            <button
+              v-for="source in basemapSources"
+              :key="source.id"
+              class="basemap-option"
+              :class="{ 'is-active': source.id === activeBasemapId }"
+              type="button"
+              role="radio"
+              :aria-checked="source.id === activeBasemapId"
+              :title="source.description"
+              @click="selectBasemap(source.id)"
+            >
+              <span class="basemap-radio" aria-hidden="true"></span>
+              <span class="basemap-meta">
+                <strong>{{ source.label }}</strong>
+                <small v-if="source.description">{{ source.description }}</small>
+              </span>
+            </button>
+          </div>
+          <div class="basemap-custom">
+            <label for="basemap-custom-url">自定义瓦片 URL</label>
+            <input
+              id="basemap-custom-url"
+              v-model="customBaseMapUrlInput"
+              type="text"
+              spellcheck="false"
+              placeholder="https://tile.example.com/{z}/{x}/{y}.png"
+            />
+            <button
+              type="button"
+              class="basemap-custom-apply"
+              :disabled="!customBaseMapUrlInput.trim()"
+              @click="applyCustomBasemap"
+            >
+              应用自定义底图
+            </button>
+          </div>
+        </FloatingWindow>
+
+        <FloatingWindow
           v-if="terrainEnabled"
           id="terrain-scale-window"
           class="terrain-scale-window"
@@ -403,28 +673,62 @@ const resourceLoads = [
         <aside class="side-rail rail-right" aria-label="右侧操作">
           <div class="rail-actions">
             <button
+              v-for="command in rightCommands"
+              :key="command.id"
+              class="rail-button"
+              type="button"
+              @click="activateRightCommand(command.id)"
+            >
+              <i class="bi" :class="command.icon" aria-hidden="true"></i>
+              <span>{{ command.label }}</span>
+            </button>
+            <button
               v-for="action in rightActions"
               :key="action.id"
               class="rail-button"
-              :class="{
-                'is-active': expandedRightMenu === action.id || activeRightPanel === action.id,
-              }"
+              :class="{ 'is-active': isRightActionActive(action.id) }"
               type="button"
-              :aria-expanded="expandedRightMenu === action.id || activeRightPanel === action.id"
-              :aria-controls="
-                expandedRightMenu === action.id
-                  ? 'right-secondary-menu'
-                  : `right-${action.id}-panel`
-              "
-              :data-tip="action.label"
-              @click="toggleRightPanel(action.id)"
+              :aria-expanded="isRightActionActive(action.id)"
+              :aria-controls="getRightActionControls(action.id)"
+              @click="toggleRightAction(action.id)"
             >
               <i class="bi" :class="action.icon" aria-hidden="true"></i>
+              <span>{{ action.label }}</span>
             </button>
           </div>
 
           <FloatingWindow
-            v-if="expandedRightAction && activeRightPanel === null"
+            v-if="expandedRightMenu === 'view' && activeRightPanel === null"
+            id="right-view-secondary-menu"
+            class="rail-panel panel-right rail-submenu"
+            title="视角操作"
+            variant="submenu"
+            close-label="关闭视角操作二级菜单"
+            @close="expandedRightMenu = null"
+          >
+            <div class="submenu-operation-list">
+              <button
+                v-for="operation in viewOperations"
+                :key="operation.id"
+                class="submenu-option"
+                type="button"
+                @click="activateViewOperation(operation.id)"
+              >
+                <i class="bi" :class="operation.icon" aria-hidden="true"></i>
+                <span>{{ operation.label }}</span>
+                <i
+                  v-if="operation.kind === 'panel'"
+                  class="bi bi-chevron-right submenu-chevron"
+                  aria-hidden="true"
+                ></i>
+              </button>
+            </div>
+          </FloatingWindow>
+
+          <FloatingWindow
+            v-else-if="
+              expandedRightAction && expandedRightMenu !== 'view' && activeRightPanel === null
+            "
             id="right-secondary-menu"
             class="rail-panel panel-right rail-submenu"
             :title="expandedRightAction.label"
@@ -435,12 +739,36 @@ const resourceLoads = [
             <button
               class="submenu-option"
               type="button"
-              @click="openRightPanel(expandedRightAction.id)"
+              @click="openRightActionPanel(expandedRightAction.id)"
             >
               <i class="bi" :class="expandedRightAction.icon" aria-hidden="true"></i>
               <span>{{ expandedRightAction.label }}</span>
               <i class="bi bi-chevron-right submenu-chevron" aria-hidden="true"></i>
             </button>
+          </FloatingWindow>
+
+          <FloatingWindow
+            v-if="activeRightPanel === 'view-position'"
+            id="right-view-position-panel"
+            class="rail-panel panel-right"
+            title="视角定位"
+            tag="VIEW"
+            close-label="关闭视角定位"
+            @close="closeRightPanel"
+          >
+            <ViewOperationsPanel section="position" />
+          </FloatingWindow>
+
+          <FloatingWindow
+            v-if="activeRightPanel === 'view-camera'"
+            id="right-view-camera-panel"
+            class="rail-panel panel-right"
+            title="相机参数"
+            tag="CAMERA"
+            close-label="关闭相机参数"
+            @close="closeRightPanel"
+          >
+            <ViewOperationsPanel section="camera" />
           </FloatingWindow>
 
           <FloatingWindow
@@ -494,11 +822,8 @@ const resourceLoads = [
       <div class="status-group">
         <span>{{ mapEngineLabel }} · {{ sceneMode === "3d" ? "3D MODE" : "2D MODE" }}</span>
         <span>CGCS2000</span>
-        <span>天地图影像</span>
-      </div>
-      <div class="status-group">
-        <span>静态演示页面</span>
-        <span>无业务数据接入</span>
+        <span>{{ activeBasemapLabel }}</span>
+        <span :title="coordinateReadoutTitle" aria-live="off">{{ coordinateReadoutText }}</span>
       </div>
     </footer>
   </div>
@@ -682,7 +1007,8 @@ body,
 
 .content-grid {
   --rail-map-gap: 18px;
-  --map-menu-width: min(302px, calc(100vw - 88px - 4 * var(--rail-map-gap)));
+  --rail-width: 56px;
+  --map-menu-width: min(302px, calc(100vw - 112px - 4 * var(--rail-map-gap)));
 
   flex: 1;
   position: relative;
@@ -696,7 +1022,7 @@ body,
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 44px;
+  width: var(--rail-width);
   margin: var(--rail-map-gap);
   z-index: 1;
   pointer-events: auto;
@@ -724,11 +1050,14 @@ body,
 
 .rail-button {
   position: relative;
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+  justify-content: center;
+  width: var(--rail-width);
+  height: 56px;
+  padding: 6px 4px;
   border: 1px solid rgba(79, 151, 255, 0.32);
   border-radius: 5px;
   color: var(--text-secondary);
@@ -740,8 +1069,14 @@ body,
 }
 
 .rail-button > .bi {
-  font-size: 19px;
+  font-size: 18px;
   line-height: 1;
+}
+
+.rail-button > span {
+  font-size: 11px;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .rail-button:hover,
@@ -755,37 +1090,6 @@ body,
 .rail-button:focus-visible {
   outline: 2px solid rgba(72, 229, 255, 0.42);
   outline-offset: 2px;
-}
-
-.rail-button::after {
-  position: absolute;
-  z-index: 5;
-  padding: 5px 8px;
-  border: 1px solid var(--panel-border);
-  border-radius: 3px;
-  color: var(--text-primary);
-  font-size: 11px;
-  line-height: 1;
-  white-space: nowrap;
-  pointer-events: none;
-  content: attr(data-tip);
-  background: rgba(7, 20, 42, 0.96);
-  opacity: 0;
-  transform: translateY(-50%);
-  transition: opacity 120ms ease;
-}
-
-.rail-left .rail-button::after {
-  left: calc(100% + var(--rail-map-gap));
-}
-
-.rail-right .rail-button::after {
-  right: calc(100% + var(--rail-map-gap));
-}
-
-.rail-button:hover::after,
-.rail-button:focus-visible::after {
-  opacity: 1;
 }
 
 .rail-panel {
@@ -862,13 +1166,13 @@ body,
   outline-offset: 2px;
 }
 
-.map-operation-list {
+.submenu-operation-list {
   display: grid;
   gap: 10px;
   margin-top: 12px;
 }
 
-.map-operation-list .submenu-option {
+.submenu-operation-list .submenu-option {
   margin-top: 0;
 }
 
@@ -956,7 +1260,7 @@ body,
 
   position: absolute;
   top: var(--rail-map-gap);
-  left: calc(44px + 3 * var(--rail-map-gap) + var(--map-menu-width));
+  left: calc(var(--rail-width) + 3 * var(--rail-map-gap) + var(--map-menu-width));
   z-index: 2;
   width: min(220px, calc(100vw - 160px));
   min-width: 0;
@@ -982,6 +1286,168 @@ body,
   height: 16px;
   margin: 0;
   accent-color: var(--cyan);
+}
+
+.basemap-window {
+  --window-padding: 10px;
+  --window-head-padding: 8px;
+  --window-title-size: 13px;
+  --window-tag-size: 9px;
+  --window-close-size: 20px;
+
+  position: absolute;
+  top: var(--rail-map-gap);
+  left: calc(var(--rail-width) + 3 * var(--rail-map-gap) + var(--map-menu-width));
+  z-index: 2;
+  width: min(240px, calc(100vw - 160px));
+  min-width: 0;
+  pointer-events: auto;
+}
+
+.basemap-empty {
+  margin-top: 10px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.basemap-options {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.basemap-option {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  padding: 8px 10px;
+  border: 1px solid var(--panel-inner-line);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  background: rgba(7, 20, 42, 0.55);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 140ms ease,
+    color 140ms ease,
+    background 140ms ease;
+}
+
+.basemap-option:hover,
+.basemap-option:focus-visible {
+  border-color: var(--panel-border);
+  color: var(--text-primary);
+}
+
+.basemap-option:focus-visible {
+  outline: 2px solid rgba(72, 229, 255, 0.42);
+  outline-offset: 1px;
+}
+
+.basemap-option.is-active {
+  border-color: rgba(72, 229, 255, 0.55);
+  color: var(--text-primary);
+  background: rgba(72, 229, 255, 0.08);
+}
+
+.basemap-radio {
+  width: 12px;
+  height: 12px;
+  border: 1px solid var(--panel-border);
+  border-radius: 50%;
+  background: transparent;
+}
+
+.basemap-option.is-active .basemap-radio {
+  border-color: var(--cyan);
+  background: var(--cyan);
+  box-shadow: inset 0 0 0 2px rgba(7, 20, 42, 0.85);
+}
+
+.basemap-meta {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.basemap-meta strong {
+  overflow: hidden;
+  color: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.basemap-meta small {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.basemap-custom {
+  display: grid;
+  gap: 7px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--panel-inner-line);
+}
+
+.basemap-custom label {
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.basemap-custom input {
+  width: 100%;
+  min-width: 0;
+  padding: 7px 9px;
+  border: 1px solid var(--panel-inner-line);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 11px;
+  background: rgba(7, 20, 42, 0.55);
+  outline: none;
+  transition: border-color 140ms ease;
+}
+
+.basemap-custom input:focus {
+  border-color: rgba(72, 229, 255, 0.55);
+}
+
+.basemap-custom-apply {
+  padding: 7px 10px;
+  border: 1px solid rgba(72, 229, 255, 0.45);
+  border-radius: 4px;
+  color: var(--cyan);
+  font-size: 12px;
+  background: rgba(72, 229, 255, 0.06);
+  cursor: pointer;
+  transition:
+    border-color 140ms ease,
+    background 140ms ease,
+    color 140ms ease;
+}
+
+.basemap-custom-apply:hover:not(:disabled),
+.basemap-custom-apply:focus-visible {
+  border-color: var(--cyan);
+  color: var(--text-primary);
+  background: rgba(72, 229, 255, 0.14);
+}
+
+.basemap-custom-apply:disabled {
+  border-color: var(--panel-inner-line);
+  color: var(--text-muted);
+  background: rgba(7, 20, 42, 0.35);
+  cursor: not-allowed;
 }
 
 .metric-grid {
@@ -1262,7 +1728,8 @@ body,
     display: none;
   }
 
-  .terrain-scale-window {
+  .terrain-scale-window,
+  .basemap-window {
     position: relative;
     top: auto;
     right: auto;
@@ -1290,10 +1757,6 @@ body,
   .rail-actions {
     flex: 0 0 auto;
     flex-direction: row;
-  }
-
-  .rail-button::after {
-    display: none;
   }
 
   .rail-panel {
@@ -1338,8 +1801,8 @@ body,
   }
 
   .rail-button {
-    width: 42px;
-    height: 42px;
+    width: 50px;
+    height: 48px;
   }
 }
 </style>

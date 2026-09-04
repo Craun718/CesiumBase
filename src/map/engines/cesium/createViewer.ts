@@ -1,51 +1,39 @@
 import * as Cesium from "cesium"
+import { registerInitialBaseLayers } from "./baseImagery"
+import { findCesiumImagerySource, DEFAULT_CESIUM_IMAGERY_SOURCE_ID } from "./imagerySources"
 
-// ===== 天地图底图配置 =====
-// 天地图 Key（tk）在项目根目录 .env 中配置（参考 .env.example）：
-//   VITE_TIANDITU_KEY=你的天地图Key
-// Key 申请地址：https://console.tianditu.gov.cn/api/key
-// 未配置 Key 时，加载底图会直接报错提示。
-const TIANDITU_KEY = import.meta.env.VITE_TIANDITU_KEY ?? ""
-
-const TIANDITU_SUBDOMAINS = ["0", "1", "2", "3", "4", "5", "6", "7"]
-const TIANDITU_MAXIMUM_LEVEL = 18
-
-/** 生成天地图 WMTS 瓦片服务（w = Web 墨卡托投影，与 Cesium 默认 WebMercatorTilingScheme 一致）。 */
-function createTiandituImageryProvider(layer: "img" | "cia"): Cesium.UrlTemplateImageryProvider {
-  return new Cesium.UrlTemplateImageryProvider({
-    url:
-      "https://t{s}.tianditu.gov.cn/" +
-      layer +
-      "_w/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0" +
-      "&LAYER=" +
-      layer +
-      "&STYLE=default&TILEMATRIXSET=w&FORMAT=tiles" +
-      "&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&tk=" +
-      TIANDITU_KEY.trim(),
-    subdomains: TIANDITU_SUBDOMAINS,
-    maximumLevel: TIANDITU_MAXIMUM_LEVEL,
-  })
-}
-
-/** 创建天地图底图图层列表（遥感影像底图 + 影像注记），未配置 Key 时直接抛错。 */
-function createBaseImageryLayers(): Cesium.ImageryLayer[] {
-  if (TIANDITU_KEY.trim() === "") {
-    throw new Error(
-      "未配置天地图 Key，无法加载天地图底图。请在项目根目录 .env 文件中设置 VITE_TIANDITU_KEY（参考 .env.example）。",
-    )
-  }
-
-  return [
-    new Cesium.ImageryLayer(createTiandituImageryProvider("img")),
-    new Cesium.ImageryLayer(createTiandituImageryProvider("cia")),
-  ]
-}
-
+/**
+ * 创建 Viewer 并应用默认图源（影像底图）。
+ *
+ * 默认图源取自 `imagerySources` 注册表首项；后续可通过
+ * `applyCesiumImagerySource` 在不重建 Viewer 的情况下热切换。
+ *
+ * 注：天地图 Key（VITE_TIANDITU_KEY）必须在 .env 中配置，否则抛错。
+ * 可选：在 .env 中配置 `VITE_CESIUM_ION_ACCESS_TOKEN` 后会自动加载
+ * Cesium World Terrain 地形（供“地形突出”功能使用），留空则不加载地形。
+ */
 export async function createViewer(container: HTMLElement) {
   await Cesium.GroundPrimitive.initializeTerrainHeights()
 
-  const baseLayers = createBaseImageryLayers()
+  const defaultSource = findCesiumImagerySource(DEFAULT_CESIUM_IMAGERY_SOURCE_ID)
+
+  if (!defaultSource) {
+    // 理论上不会触发：注册表首项永远存在。这里给出显式保护以便排错。
+    throw new Error(`默认图源 ${DEFAULT_CESIUM_IMAGERY_SOURCE_ID} 未在注册表中定义`)
+  }
+
+  const baseLayers = defaultSource.createLayers()
   const baseLayer = baseLayers[0]
+
+  const ionAccessToken = import.meta.env.VITE_CESIUM_ION_ACCESS_TOKEN?.trim()
+
+  if (ionAccessToken) {
+    Cesium.Ion.defaultAccessToken = ionAccessToken
+  } else {
+    console.warn(
+      "[Cesium] 未配置 VITE_CESIUM_ION_ACCESS_TOKEN，无法加载地形；如需地形请在 .env 中填入 Cesium ion 令牌",
+    )
+  }
 
   const viewer = new Cesium.Viewer(container, {
     animation: false,
@@ -64,13 +52,27 @@ export async function createViewer(container: HTMLElement) {
     contextOptions: {
       webgl: {
         alpha: true,
+        // 允许在截屏回调中直接读取 WebGL 画布，避免渲染缓冲区已被清空。
+        preserveDrawingBuffer: true,
       },
     },
+    ...(ionAccessToken
+      ? {
+          // 请求顶点法线与水波掩膜，让地形细节更丰富
+          terrain: Cesium.Terrain.fromWorldTerrain({
+            requestVertexNormals: true,
+            requestWaterMask: true,
+          }),
+        }
+      : {}),
   })
 
   for (const layer of baseLayers.slice(1)) {
     viewer.imageryLayers.add(layer)
   }
+
+  // 把已加入 Viewer 的基底图层登记到 baseImagery 跟踪表，便于后续热切换时整体替换。
+  registerInitialBaseLayers(viewer, defaultSource, baseLayers)
 
   return viewer
 }
