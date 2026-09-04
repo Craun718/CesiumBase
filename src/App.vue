@@ -16,7 +16,7 @@ import { useLocalStore } from "./stores"
 type LeftPanelId = "overview" | "distribution" | "map"
 type RightMenuId = "view" | "alerts" | "resources"
 type ViewPanelId = "view-position" | "view-camera"
-type ViewOperationId = ViewPanelId | "view-fullscreen" | "view-screenshot"
+type ViewOperationId = ViewPanelId | "view-fullscreen" | "view-screenshot" | "view-center"
 type RightPanelId = ViewPanelId | "alerts" | "resources"
 type RightCommandId = "return-guangxi"
 type MapOperationId =
@@ -38,6 +38,7 @@ const northLocked = ref(false)
 const terrainEnabled = ref(false)
 const undergroundEnabled = ref(false)
 const compassVisible = ref(true)
+const viewCenterVisible = ref(false)
 const terrainScale = ref(1)
 const basemapOpen = ref(false)
 // 图源列表在打开底图面板时从引擎拉取；激活 id 默认与注册表首项对齐，避免状态栏空白。
@@ -103,11 +104,12 @@ const viewOperations = [
   { id: "view-camera", label: "相机参数", icon: "bi-camera-reels", kind: "panel" },
   { id: "view-fullscreen", label: "场景全屏", icon: "bi-arrows-fullscreen", kind: "command" },
   { id: "view-screenshot", label: "场景截屏下载", icon: "bi-camera", kind: "command" },
+  { id: "view-center", label: "显示视角中心", icon: "bi-crosshair2", kind: "toggle" },
 ] satisfies Array<{
   id: ViewOperationId
   label: string
   icon: string
-  kind: "panel" | "command"
+  kind: "panel" | "command" | "toggle"
 }>
 
 const mapOperations = [
@@ -222,6 +224,10 @@ function openRightActionPanel(action: RightMenuId) {
   openRightPanel(action)
 }
 
+function isViewOperationActive(operationId: ViewOperationId) {
+  return operationId === "view-center" && viewCenterVisible.value
+}
+
 function activateViewOperation(operationId: ViewOperationId) {
   if (operationId === "view-position" || operationId === "view-camera") {
     openRightPanel(operationId)
@@ -230,6 +236,11 @@ function activateViewOperation(operationId: ViewOperationId) {
 
   if (operationId === "view-fullscreen") {
     mapController.toggleSceneFullscreen().catch(() => {})
+    return
+  }
+
+  if (operationId === "view-center") {
+    viewCenterVisible.value = !viewCenterVisible.value
     return
   }
 
@@ -605,7 +616,11 @@ const resourceLoads = [
 
         <div class="map-stage">
           <ErrorBoundary>
-            <MapViewport :compass-visible="compassVisible" :north-locked="northLocked" />
+            <MapViewport
+              :compass-visible="compassVisible"
+              :north-locked="northLocked"
+              :view-center-visible="viewCenterVisible"
+            />
           </ErrorBoundary>
           <span class="stage-label" aria-hidden="true">
             {{ sceneMode === "3d" ? "三维态势视图" : "二维态势视图" }}
@@ -728,7 +743,11 @@ const resourceLoads = [
                 v-for="operation in viewOperations"
                 :key="operation.id"
                 class="submenu-option"
+                :class="{ 'is-active': isViewOperationActive(operation.id) }"
                 type="button"
+                :aria-pressed="
+                  operation.kind === 'toggle' ? isViewOperationActive(operation.id) : undefined
+                "
                 @click="activateViewOperation(operation.id)"
               >
                 <i class="bi" :class="operation.icon" aria-hidden="true"></i>
@@ -738,6 +757,13 @@ const resourceLoads = [
                   class="bi bi-chevron-right submenu-chevron"
                   aria-hidden="true"
                 ></i>
+                <span
+                  v-else-if="operation.kind === 'toggle'"
+                  class="operation-switch"
+                  aria-hidden="true"
+                >
+                  <span class="operation-switch-thumb"></span>
+                </span>
               </button>
             </div>
           </FloatingWindow>
