@@ -22,6 +22,10 @@ export default defineConfig(({ mode }) => {
 
   return {
     define,
+    server: {
+      // 监听所有网卡，允许局域网内其他设备访问
+      host: true,
+    },
     resolve: {
       alias: [
         {
