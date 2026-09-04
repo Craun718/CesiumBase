@@ -13,6 +13,10 @@ export default defineConfig({
   define: {
     CESIUM_BASE_URL: JSON.stringify("/cesium/"),
   },
+  server: {
+    // 监听所有网卡，允许局域网内其他设备访问
+    host: true,
+  },
   resolve: {
     alias: [
       {

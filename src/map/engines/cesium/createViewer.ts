@@ -25,6 +25,7 @@ export async function createViewer(container: HTMLElement) {
   const baseLayer = baseLayers[0]
 
   const ionAccessToken = import.meta.env.VITE_CESIUM_ION_ACCESS_TOKEN?.trim()
+  const demServiceUrl = import.meta.env.VITE_DEM_SERVICE_URL?.trim()
 
   if (ionAccessToken) {
     Cesium.Ion.defaultAccessToken = ionAccessToken
@@ -70,7 +71,8 @@ export async function createViewer(container: HTMLElement) {
   registerInitialBaseLayers(viewer, defaultSource, baseLayers)
 
   // 首帧后再加载地形，避免 Ion 元数据请求阻塞地球与底图显示。
-  loadTerrainAfterFirstRender(viewer, Boolean(ionAccessToken))
+  // 已配置自建 DEM 时跳过 World Terrain，避免默认地形在首帧后覆盖自定义服务。
+  loadTerrainAfterFirstRender(viewer, Boolean(ionAccessToken) && !demServiceUrl)
 
   return viewer
 }

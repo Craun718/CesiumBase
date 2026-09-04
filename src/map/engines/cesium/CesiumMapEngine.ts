@@ -9,6 +9,7 @@ import type {
   MapEngine,
   MapBounds,
   SceneMode,
+  TerrainSource,
 } from "../../types"
 import { createViewer } from "./createViewer"
 import { installCesiumDiagnostics } from "./diagnostics"
@@ -44,6 +45,7 @@ import {
   getCurrentCesiumImagerySourceId,
 } from "./baseImagery"
 import { listCesiumImagerySources } from "./imagerySources"
+import { applyCesiumTerrainProvider, createCesiumTerrainProvider } from "./terrainSources"
 
 export class CesiumMapEngine implements MapEngine {
   private viewer?: Cesium.Viewer
@@ -52,6 +54,7 @@ export class CesiumMapEngine implements MapEngine {
   private coordinateReadout?: CoordinateReadout
   private lastPointerPosition?: { x: number; y: number }
   private coordinateReadoutRefreshedAt = 0
+  private terrainSourceGeneration = 0
   private readonly coordinateReadoutListeners = new Set<(readout: CoordinateReadout) => void>()
 
   async mount(container: HTMLElement) {
@@ -101,6 +104,7 @@ export class CesiumMapEngine implements MapEngine {
   }
 
   unmount() {
+    this.terrainSourceGeneration += 1
     this.disposePointerReadout?.()
     this.disposePointerReadout = undefined
     this.pointerHandler?.destroy()
@@ -303,6 +307,19 @@ export class CesiumMapEngine implements MapEngine {
     const viewer = this.getActiveViewer()
 
     return viewer ? applyCesiumCustomUrlSource(viewer, url) : false
+  }
+
+  async setTerrainSource(source?: TerrainSource) {
+    const viewer = this.getActiveViewer()
+    if (!viewer) return false
+
+    const generation = ++this.terrainSourceGeneration
+    const provider = await createCesiumTerrainProvider(source)
+
+    if (generation !== this.terrainSourceGeneration || !this.getActiveViewer()) return false
+
+    applyCesiumTerrainProvider(viewer, provider)
+    return true
   }
 
   private getActiveViewer() {

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from "vue"
 import { useLocalStore } from "../../stores"
+import DataServicePanel from "../../features/data/DataServicePanel.vue"
 import {
   useMapController,
   type CoordinateReadout,
@@ -29,7 +30,7 @@ import {
   type ViewOperationId,
 } from "./mapControls"
 
-type LeftActionId = "overview" | "distribution" | "map"
+type LeftActionId = "overview" | "distribution" | "map" | "data"
 type RightActionId = "view" | "alerts" | "resources"
 type RightCommandId = "return-guangxi"
 
@@ -258,10 +259,32 @@ function restoreCustomBaseMapUrl() {
   }
 }
 
+/** 引擎挂载完成后从 .env 加载 DEM 服务；URL 留空时静默跳过。 */
+function restoreEnvTerrainService() {
+  const url = import.meta.env.VITE_DEM_SERVICE_URL?.trim()
+  if (!url) return
+
+  const token = import.meta.env.VITE_DEM_SERVICE_TOKEN?.trim()
+
+  mapController
+    .setTerrainSource({
+      id: "env-config",
+      name: "默认 DEM 服务",
+      url,
+      authToken: token || undefined,
+    })
+    .catch((error) => {
+      console.warn("[数据服务] 加载 DEM 失败", error)
+    })
+}
+
 let disposeMountState: (() => void) | undefined
 
 disposeMountState = mapController.onMountStateChange((ready) => {
-  if (ready) restoreCustomBaseMapUrl()
+  if (ready) {
+    restoreCustomBaseMapUrl()
+    restoreEnvTerrainService()
+  }
 })
 
 onBeforeUnmount(() => {
@@ -302,6 +325,7 @@ const leftActions = [
   { id: "overview", label: "态势总览", icon: "bi-speedometer2" },
   { id: "distribution", label: "区域分布", icon: "bi-bar-chart-line" },
   { id: "map", label: "地图操作", icon: "bi-map", customMenu: true },
+  { id: "data", label: "数据服务", icon: "bi-database" },
 ] satisfies Array<RailAction<LeftActionId>>
 
 const rightActions = [
@@ -427,6 +451,8 @@ onBeforeUnmount(() => {
             :placement="getLeftPanelPlacement(panelPlacement)"
             @close="closePanel"
           />
+
+          <DataServicePanel v-if="activePanelId === 'data'" @close="closePanel" />
         </template>
       </OperationsRail>
 

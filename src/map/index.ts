@@ -14,4 +14,5 @@ export type {
   MapCoordinate,
   SceneMode,
   ViewFavorite,
+  TerrainSource,
 } from "./types"

@@ -15,7 +15,12 @@ export const useLocalStore = defineStore(
     // 收藏视角：相机参数与压缩截图一起保存在本机
     const viewFavorites = ref<ViewFavorite[]>([])
 
-    return { lastVisitedAt, preferences, customBaseMapUrl, viewFavorites }
+    return {
+      lastVisitedAt,
+      preferences,
+      customBaseMapUrl,
+      viewFavorites,
+    }
   },
   {
     persist: {

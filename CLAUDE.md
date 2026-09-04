@@ -106,4 +106,4 @@ Tailwind CSS v4 通过 `@tailwindcss/vite` 加载；其入口（`@import "tailwi
 - Vite 加载 `VITE_` 前缀环境变量，文件查找顺序遵循 Vite 默认（`.env` / `.env.*`）。
 - `.gitignore` 已忽略 `.env` 与 `.env.*`；仅 `.env.example` 入库作为模板。
 - 不得向 `.env.example` 提交任何真实 Key、令牌或机密。
-- 已知变量：`VITE_TIANDITU_KEY`（天地图浏览器端 Key，申请地址 <<https://console.tianditu.gov.cn/api/key）、`VITE_CESIUM_ION_ACCESS_TOKEN`（Cesium> ion 访问令牌，用于加载 Cesium World Terrain 地形，申请地址 <https://ion.cesium.com/tokens>）。
+- 已知变量：`VITE_TIANDITU_KEY`（天地图浏览器端 Key，申请地址 <https://console.tianditu.gov.cn/api/key>）、`VITE_CESIUM_ION_ACCESS_TOKEN`（Cesium ion 访问令牌，用于加载 Cesium World Terrain 地形，申请地址 <https://ion.cesium.com/tokens>）、`VITE_DEM_SERVICE_URL` / `VITE_DEM_SERVICE_TOKEN`（自建 DEM 服务地址与认证 Token）；后端脚本专用：`RUSTFS_DEV_ACCESS_KEY` / `RUSTFS_DEV_SECRET_KEY`（`scripts/upload_terrain.py` 读取的 RustFS/S3 凭据，不带 `VITE_` 前缀，由 Python 直接通过 `os.getenv` 读取）。
