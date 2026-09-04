@@ -51,6 +51,8 @@ export interface TerrainSource {
   readonly id: string
   readonly name: string
   readonly url: string
+  /** 静态认证 Token；启用后通过 Authorization: Bearer 头发送 */
+  readonly authToken?: string
   readonly requestVertexNormals?: boolean
   readonly requestWaterMask?: boolean
 }
