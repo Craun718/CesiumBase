@@ -30,6 +30,7 @@ import {
   setSceneMode,
   setTerrainExaggeration,
   setTerrainExaggerationScale,
+  setUndergroundMode,
 } from "./sceneOperations"
 import { addProvinceBoundaries } from "./provinceBoundaries"
 import {
@@ -156,6 +157,14 @@ export class CesiumMapEngine implements MapEngine {
 
     if (viewer) {
       setTerrainExaggerationScale(viewer, scale)
+    }
+  }
+
+  setUndergroundMode(enabled: boolean) {
+    const viewer = this.getActiveViewer()
+
+    if (viewer) {
+      setUndergroundMode(viewer, enabled)
     }
   }
 

@@ -101,6 +101,10 @@ export class MapController {
     this.engine?.setTerrainExaggerationScale(scale)
   }
 
+  setUndergroundMode(enabled: boolean) {
+    this.engine?.setUndergroundMode(enabled)
+  }
+
   getCameraHeading() {
     return this.engine?.getCameraHeading() ?? 0
   }

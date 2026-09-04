@@ -137,6 +137,10 @@ export class DeckMapEngine implements MapEngine {
     this.updateLayers()
   }
 
+  setUndergroundMode(_enabled: boolean) {
+    // deck.gl 占位阶段：暂不提供地下模式场景能力
+  }
+
   getCameraHeading() {
     return normalizeHeading(this.viewState.bearing ?? 0)
   }

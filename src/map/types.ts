@@ -58,6 +58,8 @@ export interface MapEngine {
   setNorthLock(enabled: boolean): void
   setTerrainExaggeration(enabled: boolean, scale: number): void
   setTerrainExaggerationScale(scale: number): void
+  /** 开启后相机可进入地表以下，并以半透明地表辅助观察地下内容。 */
+  setUndergroundMode(enabled: boolean): void
   getCameraHeading(): number
   setCameraHeading(heading: number): void
   resetCameraNorth(): void

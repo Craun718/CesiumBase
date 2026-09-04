@@ -10,8 +10,23 @@ const northLockPreviousRotateState = new WeakMap<Cesium.Viewer, boolean>()
 // 记录待完成的 2D 切换，避免相机飞行途中再次切换时旧回调继续生效。
 const pending2DTransitionTokens = new WeakMap<Cesium.Viewer, object>()
 
+// 地下模式需要临时改写场景显示与相机控制；这里保存进入前的状态供退出时还原。
+type UndergroundSceneState = {
+  collisionDetectionEnabled: boolean
+  depthTestAgainstTerrain: boolean
+  translucencyEnabled: boolean
+  frontFaceAlpha: number
+  backFaceAlpha: number
+}
+
+const undergroundPreviousStates = new WeakMap<Cesium.Viewer, UndergroundSceneState>()
+
 /** 3D 转 2D 前的俯视运镜时长，单位秒。 */
 const SCENE_MORPH_DURATION = 1.2
+
+/** 地下模式下的地表透明度；保留轮廓感，避免地图空间完全消失。 */
+const UNDERGROUND_FRONT_FACE_ALPHA = 0.55
+const UNDERGROUND_BACK_FACE_ALPHA = 0.15
 
 export function configureScene(viewer: Cesium.Viewer) {
   updateCameraZoomLimits(viewer)
@@ -151,11 +166,46 @@ export function setTerrainExaggerationScale(viewer: Cesium.Viewer, scale: number
   viewer.scene.verticalExaggeration = Math.max(scale, 1)
 }
 
+export function setUndergroundMode(viewer: Cesium.Viewer, enabled: boolean) {
+  const globe = viewer.scene.globe
+  const controller = viewer.scene.screenSpaceCameraController
+
+  if (!enabled) {
+    const previousState = undergroundPreviousStates.get(viewer)
+    if (!previousState) return
+
+    controller.enableCollisionDetection = previousState.collisionDetectionEnabled
+    globe.depthTestAgainstTerrain = previousState.depthTestAgainstTerrain
+    globe.translucency.enabled = previousState.translucencyEnabled
+    globe.translucency.frontFaceAlpha = previousState.frontFaceAlpha
+    globe.translucency.backFaceAlpha = previousState.backFaceAlpha
+    undergroundPreviousStates.delete(viewer)
+    return
+  }
+
+  if (undergroundPreviousStates.has(viewer)) return
+
+  undergroundPreviousStates.set(viewer, {
+    collisionDetectionEnabled: controller.enableCollisionDetection,
+    depthTestAgainstTerrain: globe.depthTestAgainstTerrain,
+    translucencyEnabled: globe.translucency.enabled,
+    frontFaceAlpha: globe.translucency.frontFaceAlpha,
+    backFaceAlpha: globe.translucency.backFaceAlpha,
+  })
+
+  controller.enableCollisionDetection = false
+  globe.depthTestAgainstTerrain = false
+  globe.translucency.enabled = true
+  globe.translucency.frontFaceAlpha = UNDERGROUND_FRONT_FACE_ALPHA
+  globe.translucency.backFaceAlpha = UNDERGROUND_BACK_FACE_ALPHA
+}
+
 function updateCameraZoomLimits(viewer: Cesium.Viewer) {
   const controller = viewer.scene.screenSpaceCameraController
 
   if (viewer.scene.mode !== Cesium.SceneMode.SCENE2D) {
-    controller.minimumZoomDistance = MIN_CAMERA_HEIGHT
+    // 地下模式必须允许镜头推进到地表高度以下；碰撞检测关闭后由 0 下限接管。
+    controller.minimumZoomDistance = undergroundPreviousStates.has(viewer) ? 0 : MIN_CAMERA_HEIGHT
     controller.maximumZoomDistance = MAX_CAMERA_HEIGHT
     return
   }

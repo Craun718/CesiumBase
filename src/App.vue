@@ -24,6 +24,7 @@ type MapOperationId =
   | "rotate-browse"
   | "north-lock"
   | "terrain"
+  | "underground"
   | "basemap"
   | "compass"
 
@@ -35,6 +36,7 @@ const sceneMode = ref<SceneMode>("3d")
 const rotateEnabled = ref(false)
 const northLocked = ref(false)
 const terrainEnabled = ref(false)
+const undergroundEnabled = ref(false)
 const compassVisible = ref(true)
 const terrainScale = ref(1)
 const basemapOpen = ref(false)
@@ -113,6 +115,7 @@ const mapOperations = [
   { id: "rotate-browse", label: "旋转浏览", icon: "bi-arrow-repeat", kind: "toggle" },
   { id: "north-lock", label: "正北锁定", icon: "bi-compass", kind: "toggle" },
   { id: "terrain", label: "地形突出", icon: "bi-mountain", kind: "command" },
+  { id: "underground", label: "地下模式", icon: "bi-layers-half", kind: "toggle" },
   { id: "basemap", label: "底图切换", icon: "bi-grid-1x2", kind: "command" },
   { id: "compass", label: "显示指北针", icon: "bi-signpost-2", kind: "toggle" },
 ] satisfies Array<{
@@ -257,12 +260,15 @@ function closeRightPanel() {
 }
 
 function isMapOperationDisabled(operationId: MapOperationId) {
-  return operationId === "rotate-browse" && sceneMode.value === "2d"
+  return (
+    (operationId === "rotate-browse" || operationId === "underground") && sceneMode.value === "2d"
+  )
 }
 
 function isMapOperationActive(operationId: MapOperationId) {
   if (operationId === "rotate-browse") return rotateEnabled.value
   if (operationId === "north-lock") return northLocked.value
+  if (operationId === "underground") return undergroundEnabled.value
   if (operationId === "compass") return compassVisible.value
 
   return false
@@ -279,6 +285,11 @@ function activateMapOperation(operationId: MapOperationId) {
     if (nextMode === "2d" && rotateEnabled.value) {
       rotateEnabled.value = false
       mapController.setRotateBrowse(false)
+    }
+
+    if (nextMode === "2d" && undergroundEnabled.value) {
+      undergroundEnabled.value = false
+      mapController.setUndergroundMode(false)
     }
 
     return
@@ -307,6 +318,12 @@ function activateMapOperation(operationId: MapOperationId) {
     terrainEnabled.value = true
     mapController.setTerrainExaggeration(true, terrainScale.value)
 
+    return
+  }
+
+  if (operationId === "underground") {
+    undergroundEnabled.value = !undergroundEnabled.value
+    mapController.setUndergroundMode(undergroundEnabled.value)
     return
   }
 
