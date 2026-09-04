@@ -12,4 +12,5 @@ export type {
   MapEngineId,
   MapCoordinate,
   SceneMode,
+  TerrainSource,
 } from "./types"

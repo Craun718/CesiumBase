@@ -4,6 +4,7 @@ import ErrorBoundary from "./components/ErrorBoundary.vue"
 import MapViewport from "./components/MapViewport.vue"
 import FloatingWindow from "./components/FloatingWindow.vue"
 import ViewOperationsPanel from "./components/ViewOperationsPanel.vue"
+import DataServicePanel from "./features/data/DataServicePanel.vue"
 import {
   mapEngineId,
   provideMapController,
@@ -13,7 +14,7 @@ import {
 } from "./map"
 import { useLocalStore } from "./stores"
 
-type LeftPanelId = "overview" | "distribution" | "map"
+type LeftPanelId = "overview" | "distribution" | "map" | "data"
 type RightMenuId = "view" | "alerts" | "resources"
 type ViewPanelId = "view-position" | "view-camera"
 type ViewOperationId = ViewPanelId | "view-fullscreen" | "view-screenshot"
@@ -84,6 +85,7 @@ const leftActions = [
   { id: "overview", label: "态势总览", icon: "bi-speedometer2" },
   { id: "distribution", label: "区域分布", icon: "bi-bar-chart-line" },
   { id: "map", label: "地图操作", icon: "bi-map" },
+  { id: "data", label: "数据服务", icon: "bi-database" },
 ] satisfies Array<{ id: LeftPanelId; label: string; icon: string }>
 
 const rightActions = [
@@ -131,6 +133,16 @@ const expandedRightAction = computed(
 )
 
 function toggleLeftPanel(panel: LeftPanelId) {
+  if (panel === "data") {
+    if (activeLeftPanel.value === panel) {
+      closeLeftPanel()
+      return
+    }
+
+    openLeftPanel(panel)
+    return
+  }
+
   if (panel === "map") {
     expandedLeftMenu.value = expandedLeftMenu.value === panel ? null : panel
     activeLeftPanel.value = null
@@ -391,9 +403,31 @@ function restoreCustomBaseMapUrl() {
   }
 }
 
+/** 引擎挂载完成后恢复上次启用的 DEM 服务，便于刷新后继续验证地形效果。 */
+function restoreActiveTerrainService() {
+  const service = localStore.dataServices.find(
+    (item) => item.id === localStore.activeTerrainServiceId,
+  )
+
+  if (!service) return
+
+  mapController
+    .setTerrainSource({
+      id: service.id,
+      name: service.name,
+      url: service.url,
+      requestVertexNormals: service.params?.requestVertexNormals ?? false,
+      requestWaterMask: service.params?.requestWaterMask ?? false,
+    })
+    .catch((error) => {
+      console.warn("[数据服务] 恢复 DEM 失败", error)
+    })
+}
+
 disposeMountState = mapController.onMountStateChange((ready) => {
   if (ready) {
     restoreCustomBaseMapUrl()
+    restoreActiveTerrainService()
   }
 })
 
@@ -584,6 +618,8 @@ const resourceLoads = [
               </div>
             </div>
           </FloatingWindow>
+
+          <DataServicePanel v-if="activeLeftPanel === 'data'" @close="closeLeftPanel" />
         </aside>
 
         <div class="map-stage">
