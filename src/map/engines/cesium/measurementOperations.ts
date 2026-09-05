@@ -58,6 +58,7 @@ export class CesiumMeasurementController {
     this.completed = false
     this.resultValue = undefined
     this.error = undefined
+    this.removeCompletedEntities()
     this.render()
     this.emitState()
   }
@@ -82,6 +83,7 @@ export class CesiumMeasurementController {
     this.completed = false
     this.resultValue = undefined
     this.error = undefined
+    this.removeCompletedEntities()
     this.render()
     this.emitState()
   }
@@ -234,68 +236,101 @@ export class CesiumMeasurementController {
 
   /** 根据确认点与预览点重建地图测量图形。 */
   private render() {
-    this.removeEntities()
+    this.viewer.entities.suspendEvents()
+    try {
+      this.removeCurrentEntities()
 
-    const displayPoints = [...this.points]
-    if (this.previewPoint && (this.mode === "length" || this.mode === "area")) {
-      displayPoints.push(this.previewPoint)
+      const displayPoints = [...this.points]
+      if (this.previewPoint && (this.mode === "length" || this.mode === "area")) {
+        displayPoints.push(this.previewPoint)
+      }
+
+      for (const [index, point] of this.points.entries()) {
+        this.entities.push(this.createPointEntity(point, false, index + 1))
+      }
+
+      if (this.previewPoint && (this.mode === "length" || this.mode === "area")) {
+        this.entities.push(this.createPointEntity(this.previewPoint, true, displayPoints.length))
+      }
+
+      if (this.mode && displayPoints.length > 0) {
+        const positions = displayPoints.map((point) => createCesiumPosition(point))
+
+        if (this.mode === "length" && positions.length > 1) {
+          this.entities.push(
+            this.viewer.entities.add({
+              polyline: {
+                positions,
+                width: 3,
+                material: LINE_COLOR,
+                clampToGround: true,
+              },
+            }),
+          )
+        }
+
+        if (this.mode === "area" && positions.length > 2) {
+          this.entities.push(
+            this.viewer.entities.add({
+              polygon: {
+                hierarchy: new Cesium.PolygonHierarchy(positions),
+                material: LINE_COLOR.withAlpha(0.2),
+                perPositionHeight: true,
+              },
+            }),
+          )
+        }
+
+        const labelPosition = this.getResultLabelPosition(displayPoints)
+        if (labelPosition && this.resultValue !== undefined) {
+          this.entities.push(
+            this.viewer.entities.add({
+              position: createCesiumPosition(labelPosition),
+              label: {
+                text: this.formatResult(),
+                font: "600 13px ui-monospace, monospace",
+                fillColor: Cesium.Color.fromCssColorString("#e8f7ff"),
+                showBackground: true,
+                backgroundColor: LABEL_BACKGROUND,
+                verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+                pixelOffset: new Cesium.Cartesian2(0, -12),
+                disableDepthTestDistance: Number.POSITIVE_INFINITY,
+              },
+            }),
+          )
+        }
+      }
+    } finally {
+      this.viewer.entities.resumeEvents()
+    }
+  }
+
+  /** 移除当前测量创建的全部实体。 */
+  private removeEntities() {
+    this.removeCurrentEntities()
+    this.removeCompletedEntities()
+  }
+
+  /** 仅移除正在绘制或刚完成的当前测量实体。 */
+  private removeCurrentEntities() {
+    if (!this.viewer.isDestroyed()) {
+      for (const entity of this.entities) {
+        this.viewer.entities.remove(entity)
+      }
     }
 
-    for (const [index, point] of this.points.entries()) {
-      this.entities.push(this.createPointEntity(point, false, index + 1))
+    this.entities = []
+  }
+
+  /** 仅移除已完成并归档的测量实体。 */
+  private removeCompletedEntities() {
+    if (!this.viewer.isDestroyed()) {
+      for (const entity of this.completedEntities) {
+        this.viewer.entities.remove(entity)
+      }
     }
 
-    if (this.previewPoint && (this.mode === "length" || this.mode === "area")) {
-      this.entities.push(this.createPointEntity(this.previewPoint, true, displayPoints.length))
-    }
-
-    if (!this.mode || displayPoints.length === 0) return
-
-    const positions = displayPoints.map((point) => createCesiumPosition(point))
-
-    if (this.mode === "length" && positions.length > 1) {
-      this.entities.push(
-        this.viewer.entities.add({
-          polyline: {
-            positions,
-            width: 3,
-            material: LINE_COLOR,
-            clampToGround: true,
-          },
-        }),
-      )
-    }
-
-    if (this.mode === "area" && positions.length > 2) {
-      this.entities.push(
-        this.viewer.entities.add({
-          polygon: {
-            hierarchy: new Cesium.PolygonHierarchy(positions),
-            material: LINE_COLOR.withAlpha(0.2),
-            perPositionHeight: true,
-          },
-        }),
-      )
-    }
-
-    const labelPosition = this.getResultLabelPosition(displayPoints)
-    if (labelPosition && this.resultValue !== undefined) {
-      this.entities.push(
-        this.viewer.entities.add({
-          position: createCesiumPosition(labelPosition),
-          label: {
-            text: this.formatResult(),
-            font: "600 13px ui-monospace, monospace",
-            fillColor: Cesium.Color.fromCssColorString("#e8f7ff"),
-            showBackground: true,
-            backgroundColor: LABEL_BACKGROUND,
-            verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
-            pixelOffset: new Cesium.Cartesian2(0, -12),
-            disableDepthTestDistance: Number.POSITIVE_INFINITY,
-          },
-        }),
-      )
-    }
+    this.completedEntities = []
   }
 
   /** 创建测量节点实体。 */
@@ -358,21 +393,6 @@ export class CesiumMeasurementController {
     return this.resultValue >= 1000
       ? `${(this.resultValue / 1000).toFixed(3)} km`
       : `${this.resultValue.toFixed(1)} m`
-  }
-
-  /** 移除当前测量创建的全部实体。 */
-  private removeEntities() {
-    if (!this.viewer.isDestroyed()) {
-      for (const entity of this.entities) {
-        this.viewer.entities.remove(entity)
-      }
-      for (const entity of this.completedEntities) {
-        this.viewer.entities.remove(entity)
-      }
-    }
-
-    this.entities = []
-    this.completedEntities = []
   }
 
   /** 保留已完成测量图形，并为下一次左键测量重建当前点集。 */
