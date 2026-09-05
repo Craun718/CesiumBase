@@ -156,6 +156,7 @@ export interface MeasurementState {
   readonly mode: MeasurementMode | null
   readonly points: readonly MeasurementPoint[]
   readonly previewPoint: MeasurementPoint | undefined
+  readonly completed: boolean
   readonly resultValue: number | undefined
   readonly error: string | undefined
 }

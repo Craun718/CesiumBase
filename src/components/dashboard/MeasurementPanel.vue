@@ -12,8 +12,14 @@ const state = computed(() => props.controls.measurementState)
 const resultText = computed(() => formatResult(state.value))
 const statusText = computed(() => {
   if (state.value.error) return state.value.error
-  if (state.value.mode === "area" && state.value.points.length < 3) {
-    return `已选择 ${state.value.points.length}/3 个点`
+  if (state.value.mode === "length" || state.value.mode === "area") {
+    if (state.value.completed) return "已完成，左键开始新测量"
+    const requiredPoints = state.value.mode === "area" ? 3 : 2
+    if (state.value.points.length < requiredPoints) {
+      return `已选择 ${state.value.points.length}/${requiredPoints} 个点，右键完成`
+    }
+
+    return "左键添加点，右键完成"
   }
 
   return state.value.resultValue === undefined ? "等待测量点" : "测量中"
