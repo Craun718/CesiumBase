@@ -1,0 +1,104 @@
+.side-rail {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: var(--rail-width, 56px);
+  margin: var(--rail-map-gap, 18px);
+  z-index: 1;
+  pointer-events: auto;
+  min-width: 0;
+  max-height: 100%;
+}
+
+.rail-left {
+  left: 0;
+}
+
+.rail-right {
+  right: 0;
+}
+
+.rail-actions {
+  position: relative;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding: 0;
+}
+
+.rail-button {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+  justify-content: center;
+  width: var(--rail-width, 56px);
+  height: 56px;
+  padding: 6px 4px;
+  border: 1px solid rgba(79, 151, 255, 0.32);
+  border-radius: 5px;
+  color: var(--text-secondary);
+  background: rgba(7, 20, 42, 0.86);
+  transition:
+    color 160ms ease,
+    border-color 160ms ease,
+    background-color 160ms ease;
+}
+
+.rail-button > .bi {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.rail-button > span {
+  font-size: 11px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.rail-button:hover,
+.rail-button:focus-visible,
+.rail-button.is-active {
+  border-color: rgba(72, 229, 255, 0.76);
+  color: var(--cyan);
+  background: rgba(16, 47, 83, 0.94);
+}
+
+.rail-button:focus-visible {
+  outline: 2px solid rgba(72, 229, 255, 0.42);
+  outline-offset: 2px;
+}
+
+@media (max-width: 1023px) {
+  .side-rail {
+    position: relative;
+    inset: auto;
+    width: auto;
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-start;
+    max-width: 100%;
+    padding: 2px;
+    overflow: visible;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(72, 229, 255, 0.45) transparent;
+    pointer-events: auto;
+  }
+
+  .rail-actions {
+    flex: 0 0 auto;
+    flex-direction: row;
+  }
+}
+
+@media (max-width: 640px) {
+  .rail-button {
+    width: 50px;
+    height: 48px;
+  }
+}

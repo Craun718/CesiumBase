@@ -1,0 +1,70 @@
+@import "tailwindcss";
+
+@theme {
+  --color-abyss: #030913;
+  --color-panel: rgba(7, 20, 42, 0.78);
+  --color-panel-border: rgba(79, 151, 255, 0.28);
+  --color-panel-inner: rgba(79, 151, 255, 0.18);
+  --color-text-primary: #e9f5ff;
+  --color-text-secondary: #9db8dc;
+  --color-text-muted: #6f8bad;
+  --color-accent-cyan: #48e5ff;
+  --color-accent-blue: #57a4ff;
+  --color-accent-amber: #ffb648;
+  --color-accent-rose: #ff5f78;
+
+  --font-interface: Inter, "HarmonyOS Sans SC", "Microsoft YaHei", system-ui, sans-serif;
+  --font-data: ui-monospace, Consolas, monospace;
+}
+
+:root {
+  color-scheme: dark;
+  font-family: var(--font-interface);
+  font-size: 16px;
+  line-height: 1.45;
+  letter-spacing: 0;
+  color: #dcecff;
+  background: #030913;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  --panel-bg: var(--color-panel);
+  --panel-border: var(--color-panel-border);
+  --panel-inner-line: var(--color-panel-inner);
+  --panel-shadow: 0 16px 42px rgba(1, 8, 20, 0.52);
+  --text-primary: var(--color-text-primary);
+  --text-secondary: var(--color-text-secondary);
+  --text-muted: var(--color-text-muted);
+  --cyan: var(--color-accent-cyan);
+  --blue: var(--color-accent-blue);
+  --amber: var(--color-accent-amber);
+  --rose: var(--color-accent-rose);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  overflow: hidden;
+  background: #030913;
+}
+
+body,
+#app {
+  width: 100%;
+  height: 100%;
+}
+
+#app {
+  min-height: 100vh;
+}
+
+@media (max-width: 1023px) {
+  body {
+    overflow: auto;
+  }
+}

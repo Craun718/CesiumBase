@@ -1,14 +1,13 @@
 # CesiumBase
 
-Vue 3, TypeScript, and Vite application with a shared map application layer and two independently selected rendering engines.
+Vue 3, TypeScript, and Vite application with a shared map application layer. This branch contains only the Cesium rendering engine.
 
 ## Engine Architecture
 
 - Shared UI and orchestration live in `src/App.vue`, `src/components/MapViewport.vue`, and `src/map/MapController.ts`.
-- Engine-specific code lives under `src/map/engines/cesium/` or `src/map/engines/deck/`.
-- The engine is selected at build time by the Vite mode, not at runtime by application state.
-- Engine dependencies belong to the matching engine workspace manifest. The root package does not depend on Cesium or deck.gl.
-- The selected build excludes the other engine, so a Cesium build does not contain deck.gl and a deck.gl build does not contain Cesium assets.
+- Engine-specific code lives under `src/map/engines/cesium/`.
+- The current engine entry is fixed by the Vite alias, while the shared map layer remains engine-independent.
+- Engine dependencies belong to the matching engine workspace manifest.
 
 Commands:
 
@@ -16,16 +15,11 @@ Commands:
 pnpm dev          # Cesium development server
 pnpm build        # Cesium production build
 pnpm preview      # Cesium production preview
-
-pnpm dev:deck     # deck.gl development server
-pnpm build:deck   # deck.gl production build
-pnpm preview:deck # deck.gl production preview
 ```
 
 Dependency changes should be made in the matching engine manifest:
 
 - `src/map/engines/cesium/package.json`
-- `src/map/engines/deck/package.json`
 
 Keep engine-independent behavior in the shared map layer. Only camera, rendering, layer, terrain, and cleanup details that differ by engine should enter an engine directory.
 

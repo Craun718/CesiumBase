@@ -8,6 +8,7 @@
     "dev:deck": "vite --mode deck-gl",
     "build": "vue-tsc -b && vite build",
     "build:deck": "vue-tsc -b && vite build --mode deck-gl",
+    "typecheck": "vue-tsc -b",
     "preview": "vite preview",
     "preview:deck": "vite preview --mode deck-gl",
     "lint": "oxlint .",

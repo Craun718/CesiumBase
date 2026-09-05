@@ -1,5 +1,6 @@
 import { Deck, MapView, type MapViewState } from "@deck.gl/core"
 import type { MapBounds, MapEngine, SceneMode } from "../../types"
+import { MapEngineCompatibility } from "../../engineCompatibility"
 import { createDeckLayers, getDeckTooltip, WebMercatorViewport } from "./layers"
 import { CesiumStyleTerrainController } from "./terrainController"
 
@@ -19,7 +20,7 @@ function normalizeHeading(heading: number) {
   return degrees === 360 ? 0 : degrees
 }
 
-export class DeckMapEngine implements MapEngine {
+export class DeckMapEngine extends MapEngineCompatibility implements MapEngine {
   private deck?: Deck<MapView>
   private container?: HTMLElement
   private attribution?: HTMLElement

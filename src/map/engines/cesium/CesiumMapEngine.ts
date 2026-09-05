@@ -1,5 +1,6 @@
 import type * as Cesium from "cesium"
 import type { MapEngine, MapBounds, SceneMode } from "../../types"
+import { MapEngineCompatibility } from "../../engineCompatibility"
 import { createViewer } from "./createViewer"
 import { flyToBounds, setInitialCamera } from "./cameraOperations"
 import {
@@ -18,7 +19,7 @@ import {
 } from "./cameraOperations"
 import { addProvinceBoundaries } from "./provinceBoundaries"
 
-export class CesiumMapEngine implements MapEngine {
+export class CesiumMapEngine extends MapEngineCompatibility implements MapEngine {
   private viewer?: Cesium.Viewer
 
   async mount(container: HTMLElement) {
