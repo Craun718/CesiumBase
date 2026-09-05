@@ -148,6 +148,8 @@ export interface MapEngine {
   renameDrawing(id: string, name: string): boolean
   /** 删除指定绘制成果。 */
   removeDrawing(id: string): boolean
+  /** 设置已完成绘制成果的地图显隐。 */
+  setDrawingFeaturesVisible(visible: boolean): void
   /** 取消草图并删除全部绘制成果。 */
   clearDrawings(): void
   /** 读取当前绘制状态；引擎未挂载时返回空状态。 */

@@ -323,6 +323,11 @@ export class CesiumMapEngine implements MapEngine {
     return this.drawingController.removeDrawing(id)
   }
 
+  /** 设置已完成绘制成果的地图显隐。 */
+  setDrawingFeaturesVisible(visible: boolean) {
+    this.drawingController.setFeaturesVisible(visible)
+  }
+
   /** 清空全部绘制内容。 */
   clearDrawings() {
     this.drawingController.clearDrawings()
