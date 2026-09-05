@@ -6,32 +6,42 @@ import {
   useMapController,
   type CoordinateReadout,
   type ImagerySource,
+  type MapDrawFeature,
+  type MapDrawGeometryType,
+  type MapDrawState,
+  type MeasurementState,
   type SceneMode,
 } from "../../map"
 import AppStatusBar from "./AppStatusBar.vue"
 import AlertsPanel from "./AlertsPanel.vue"
 import BasemapPanel from "./BasemapPanel.vue"
 import DistributionPanel from "./DistributionPanel.vue"
+import DrawingPanel from "./DrawingPanel.vue"
 import OverviewPanel from "./OverviewPanel.vue"
 import MapStage from "./MapStage.vue"
+import MeasurementPanel from "./MeasurementPanel.vue"
 import OperationsMenu from "./OperationsMenu.vue"
 import OperationsRail from "./OperationsRail.vue"
 import RailPanel from "./RailPanel.vue"
 import ResourcesPanel from "./ResourcesPanel.vue"
 import TerrainPanel from "./TerrainPanel.vue"
+import FlightTourPanel from "../FlightTourPanel.vue"
+import FlightRouteSettingsPanel from "../FlightRouteSettingsPanel.vue"
 import ViewFavoritesPanel from "../ViewFavoritesPanel.vue"
 import ViewOperationsPanel from "../ViewOperationsPanel.vue"
 import type { OperationMenuItem, RailAction, RailCommand, RailPanelPlacement } from "./operations"
 import {
   mapOperations,
+  measurementOperations,
   viewOperations,
   type MapControls,
   type MapOperationId,
+  type MeasurementOperationId,
   type ViewOperationId,
 } from "./mapControls"
 
-type LeftActionId = "overview" | "distribution" | "map" | "data"
-type RightActionId = "view" | "alerts" | "resources"
+type LeftActionId = "overview" | "distribution" | "map" | "drawing" | "data"
+type RightActionId = "view" | "measure" | "alerts" | "resources"
 type RightCommandId = "return-guangxi"
 
 const CUSTOM_BASEMAP_ID = "custom"
@@ -49,9 +59,20 @@ const viewCenterVisible = ref(false)
 const viewPositionOpen = ref(false)
 const viewCameraOpen = ref(false)
 const viewFavoritesOpen = ref(false)
+const viewFlightOpen = ref(false)
+const selectedFlightRouteId = ref("")
+const flightRouteSettingsOpen = ref(false)
+const measurementOpen = ref(false)
+const measurementState = ref<MeasurementState>(mapController.getMeasurementState())
 const terrainScale = ref(1)
 const basemapOpen = ref(false)
 const basemapSources = ref<ImagerySource[]>([])
+const drawingOpen = ref(false)
+const drawingState = ref<MapDrawState>({
+  mode: null,
+  activeCoordinates: [],
+  features: [],
+})
 const activeBasemapId = ref<string | undefined>("tianditu-img")
 const customBaseMapUrlInput = ref(localStore.customBaseMapUrl)
 
@@ -113,6 +134,7 @@ function activateMapOperation(operationId: MapOperationId) {
 
   if (operationId === "terrain") {
     // 与底图切换互斥：打开地形面板前先关闭底图面板。
+    closeDrawingPanel()
     basemapOpen.value = false
 
     if (terrainEnabled.value) return
@@ -130,6 +152,7 @@ function activateMapOperation(operationId: MapOperationId) {
 
   if (operationId === "basemap") {
     // 与地形突出互斥：打开底图面板前先关闭地形面板并回退引擎夸张设置。
+    closeDrawingPanel()
     if (terrainEnabled.value) {
       terrainEnabled.value = false
       mapController.setTerrainExaggeration(false, terrainScale.value)
@@ -157,6 +180,8 @@ function activateViewOperation(operationId: ViewOperationId) {
   if (operationId === "view-position") {
     viewCameraOpen.value = false
     viewFavoritesOpen.value = false
+    viewFlightOpen.value = false
+    flightRouteSettingsOpen.value = false
     viewPositionOpen.value = !viewPositionOpen.value
     return
   }
@@ -164,6 +189,8 @@ function activateViewOperation(operationId: ViewOperationId) {
   if (operationId === "view-camera") {
     viewPositionOpen.value = false
     viewFavoritesOpen.value = false
+    viewFlightOpen.value = false
+    flightRouteSettingsOpen.value = false
     viewCameraOpen.value = !viewCameraOpen.value
     return
   }
@@ -171,7 +198,18 @@ function activateViewOperation(operationId: ViewOperationId) {
   if (operationId === "view-favorites") {
     viewPositionOpen.value = false
     viewCameraOpen.value = false
+    viewFlightOpen.value = false
+    flightRouteSettingsOpen.value = false
     viewFavoritesOpen.value = !viewFavoritesOpen.value
+    return
+  }
+
+  if (operationId === "view-flight") {
+    viewPositionOpen.value = false
+    viewCameraOpen.value = false
+    viewFavoritesOpen.value = false
+    flightRouteSettingsOpen.value = false
+    viewFlightOpen.value = !viewFlightOpen.value
     return
   }
 
@@ -198,6 +236,36 @@ function closeViewPanel() {
   viewPositionOpen.value = false
   viewCameraOpen.value = false
   viewFavoritesOpen.value = false
+  viewFlightOpen.value = false
+  flightRouteSettingsOpen.value = false
+}
+
+/** 关闭航线参数四级面板。 */
+function closeFlightRouteSettings() {
+  flightRouteSettingsOpen.value = false
+}
+
+/** 打开测量面板并切换到指定测量模式。 */
+function activateMeasurementOperation(operationId: MeasurementOperationId) {
+  closeDrawingPanel()
+  measurementOpen.value = true
+  mapController.setMeasurementMode(operationId)
+}
+
+/** 关闭测量面板并停止地图测量交互。 */
+function closeMeasurementPanel() {
+  measurementOpen.value = false
+  mapController.setMeasurementMode(null)
+}
+
+/** 撤销当前测量的最后一个确认点。 */
+function undoMeasurementPoint() {
+  mapController.undoMeasurementPoint()
+}
+
+/** 清空当前测量点并保持测量模式。 */
+function clearMeasurement() {
+  mapController.clearMeasurement()
 }
 
 function handleTerrainScaleInput(event: Event) {
@@ -229,6 +297,67 @@ function openBasemapPanel() {
 
 function closeBasemapPanel() {
   basemapOpen.value = false
+}
+
+/** 开始一种绘制类型；引擎未挂载时保持面板状态不变。 */
+function startDrawing(type: MapDrawGeometryType) {
+  mapController.startDrawing(type)
+}
+
+/** 完成当前草图。 */
+function finishDrawing() {
+  mapController.finishDrawing()
+}
+
+/** 取消当前草图。 */
+function cancelDrawing() {
+  mapController.cancelDrawing()
+}
+
+/** 清空绘制草图与成果。 */
+function clearDrawings() {
+  mapController.clearDrawings()
+}
+
+/** 提交成果名称；空名称回退为当前名称。 */
+function renameDrawing(event: Event, id: string) {
+  const input = event.target
+  if (!(input instanceof HTMLInputElement)) return
+
+  const feature = drawingState.value.features.find((item) => item.id === id)
+  if (!feature) return
+
+  const name = input.value.trim()
+  if (!name || !mapController.renameDrawing(id, name)) {
+    input.value = feature.name
+  }
+}
+
+/** 删除单个绘制成果。 */
+function removeDrawing(id: string) {
+  mapController.removeDrawing(id)
+}
+
+/** 关闭绘制面板时退出绘制模式，不删除已完成成果。 */
+function closeDrawingPanel() {
+  mapController.stopDrawing()
+  drawingOpen.value = false
+}
+
+/** 从一级操作栏打开绘制面板，并关闭互斥的地图功能面板。 */
+function openDrawingPanel() {
+  if (drawingOpen.value) return
+
+  closeMeasurementPanel()
+  terrainEnabled.value = false
+  mapController.setTerrainExaggeration(false, terrainScale.value)
+  basemapOpen.value = false
+  drawingOpen.value = true
+}
+
+/** 响应左侧一级直开面板入口。 */
+function activateLeftPanel(actionId: LeftActionId) {
+  if (actionId === "drawing") openDrawingPanel()
 }
 
 /** 切换图源后保留面板，便于连续对比；关闭走面板右上角 X。 */
@@ -279,18 +408,44 @@ function restoreEnvTerrainService() {
 }
 
 let disposeMountState: (() => void) | undefined
+let disposeDrawingState: (() => void) | undefined
+let drawingPersistenceEnabled = false
 
 disposeMountState = mapController.onMountStateChange((ready) => {
   if (ready) {
+    restoreDrawingFeatures()
     restoreCustomBaseMapUrl()
     restoreEnvTerrainService()
+  }
+})
+
+disposeDrawingState = mapController.onDrawingStateChange((state) => {
+  drawingState.value = state
+  if (drawingPersistenceEnabled) {
+    persistDrawingFeatures(state.features)
   }
 })
 
 onBeforeUnmount(() => {
   disposeMountState?.()
   disposeMountState = undefined
+  disposeDrawingState?.()
+  disposeDrawingState = undefined
 })
+
+/** 保存绘制成果到本机，不保存未完成草图。 */
+function persistDrawingFeatures(features: readonly MapDrawFeature[]) {
+  localStore.drawingFeatures = features.map((feature) => ({
+    ...feature,
+    coordinates: feature.coordinates.map((coordinate) => ({ ...coordinate })),
+  }))
+}
+
+/** 引擎挂载完成后恢复本机绘制成果。 */
+function restoreDrawingFeatures() {
+  drawingPersistenceEnabled = true
+  mapController.restoreDrawings(localStore.drawingFeatures)
+}
 
 const controls = reactive({
   sceneMode,
@@ -303,9 +458,16 @@ const controls = reactive({
   viewPositionOpen,
   viewCameraOpen,
   viewFavoritesOpen,
+  viewFlightOpen,
+  selectedFlightRouteId,
+  flightRouteSettingsOpen,
+  measurementOpen,
+  measurementState,
   terrainScale,
   basemapOpen,
   basemapSources,
+  drawingOpen,
+  drawingState,
   activeBasemapId,
   activeBasemapLabel,
   customBaseMapUrlInput,
@@ -314,9 +476,21 @@ const controls = reactive({
   activateMapOperation,
   activateViewOperation,
   closeViewPanel,
+  closeFlightRouteSettings,
+  activateMeasurementOperation,
+  closeMeasurementPanel,
+  undoMeasurementPoint,
+  clearMeasurement,
   handleTerrainScaleInput,
   closeTerrainPanel,
   closeBasemapPanel,
+  startDrawing,
+  finishDrawing,
+  cancelDrawing,
+  clearDrawings,
+  renameDrawing,
+  removeDrawing,
+  closeDrawingPanel,
   selectBasemap,
   applyCustomBasemap,
 }) satisfies MapControls
@@ -325,11 +499,13 @@ const leftActions = [
   { id: "overview", label: "态势总览", icon: "bi-speedometer2" },
   { id: "distribution", label: "区域分布", icon: "bi-bar-chart-line" },
   { id: "map", label: "地图操作", icon: "bi-map", customMenu: true },
+  { id: "drawing", label: "绘制操作", icon: "bi-pencil", directPanel: true },
   { id: "data", label: "数据服务", icon: "bi-database" },
 ] satisfies Array<RailAction<LeftActionId>>
 
 const rightActions = [
   { id: "view", label: "视角操作", icon: "bi-eye", customMenu: true },
+  { id: "measure", label: "测量操作", icon: "bi-rulers", customMenu: true },
   { id: "alerts", label: "实时告警", icon: "bi-bell" },
   { id: "resources", label: "资源负载", icon: "bi-cpu" },
 ] satisfies Array<RailAction<RightActionId>>
@@ -352,6 +528,10 @@ const mapMenuItems = computed<Array<OperationMenuItem<MapOperationId>>>(() =>
 )
 
 function getLeftExternalPanel(actionId: LeftActionId) {
+  if (actionId === "drawing" && controls.drawingOpen) {
+    return { controlId: "drawing-window", close: closeDrawingPanel }
+  }
+
   if (actionId !== "map") return
 
   if (controls.terrainEnabled) {
@@ -372,7 +552,16 @@ const viewMenuItems = computed<Array<OperationMenuItem<ViewOperationId>>>(() =>
       (operation.id === "view-center" && controls.viewCenterVisible) ||
       (operation.id === "view-position" && controls.viewPositionOpen) ||
       (operation.id === "view-camera" && controls.viewCameraOpen) ||
-      (operation.id === "view-favorites" && controls.viewFavoritesOpen),
+      (operation.id === "view-favorites" && controls.viewFavoritesOpen) ||
+      (operation.id === "view-flight" && controls.viewFlightOpen),
+  })),
+)
+
+const measurementMenuItems = computed<Array<OperationMenuItem<MeasurementOperationId>>>(() =>
+  measurementOperations.map((operation) => ({
+    ...operation,
+    active: controls.measurementState.mode === operation.id,
+    open: controls.measurementOpen && controls.measurementState.mode === operation.id,
   })),
 )
 
@@ -383,6 +572,10 @@ function activateRightCommand(commandId: RightCommandId) {
 }
 
 function getRightExternalPanel(actionId: RightActionId) {
+  if (actionId === "measure" && controls.measurementOpen) {
+    return { controlId: "right-measure-panel", close: closeMeasurementPanel }
+  }
+
   if (actionId !== "view") return undefined
 
   if (controls.viewPositionOpen) {
@@ -395,6 +588,10 @@ function getRightExternalPanel(actionId: RightActionId) {
 
   if (controls.viewFavoritesOpen) {
     return { controlId: "right-view-favorites-panel", close: closeViewPanel }
+  }
+
+  if (controls.viewFlightOpen) {
+    return { controlId: "right-view-flight-panel", close: closeViewPanel }
   }
 
   return undefined
@@ -429,16 +626,22 @@ const coordinateReadoutTitle = computed(() =>
 )
 
 let disposeReadout: (() => void) | undefined
+let disposeMeasurementState: (() => void) | undefined
 
 onMounted(() => {
   disposeReadout = mapController.onCoordinateReadoutChange((value) => {
     readout.value = value
+  })
+  disposeMeasurementState = mapController.onMeasurementStateChange((value) => {
+    measurementState.value = value
   })
 })
 
 onBeforeUnmount(() => {
   disposeReadout?.()
   disposeReadout = undefined
+  disposeMeasurementState?.()
+  disposeMeasurementState = undefined
 })
 </script>
 
@@ -450,6 +653,7 @@ onBeforeUnmount(() => {
         label="左侧操作"
         :actions="leftActions"
         :get-external-panel="getLeftExternalPanel"
+        @panel="activateLeftPanel"
       >
         <template #menu="{ action, close }">
           <OperationsMenu
@@ -465,6 +669,12 @@ onBeforeUnmount(() => {
         </template>
 
         <template #panels="{ activePanelId, panelPlacement, closePanel }">
+          <DrawingPanel
+            v-if="controls.drawingOpen"
+            :controls="controls"
+            :placement="getLeftPanelPlacement(panelPlacement)"
+          />
+
           <BasemapPanel
             v-if="controls.basemapOpen"
             :controls="controls"
@@ -507,13 +717,25 @@ onBeforeUnmount(() => {
         :get-external-panel="getRightExternalPanel"
         @command="activateRightCommand"
       >
-        <template #menu="{ close }">
+        <template #menu="{ action, close }">
           <OperationsMenu
+            v-if="action.id === 'view'"
             side="right"
             action-id="view"
             title="视角操作"
             :operations="viewMenuItems"
             @activate="activateViewOperation"
+            @close="close"
+          />
+
+          <OperationsMenu
+            v-else-if="action.id === 'measure'"
+            side="right"
+            action-id="measure"
+            title="测量操作"
+            tag="MEASURE"
+            :operations="measurementMenuItems"
+            @activate="activateMeasurementOperation"
             @close="close"
           />
         </template>
@@ -555,6 +777,44 @@ onBeforeUnmount(() => {
             <ViewFavoritesPanel />
           </RailPanel>
 
+          <RailPanel
+            v-if="controls.viewFlightOpen"
+            id="right-view-flight-panel"
+            class="flight-window"
+            :placement="getRightPanelPlacement(panelPlacement)"
+            title="飞行漫游"
+            tag="FLIGHT"
+            close-label="关闭飞行漫游"
+            @close="closeViewPanel"
+          >
+            <FlightTourPanel
+              v-model:selected-route-id="controls.selectedFlightRouteId"
+              :settings-open="controls.flightRouteSettingsOpen"
+              @toggle-settings="
+                controls.flightRouteSettingsOpen = !controls.flightRouteSettingsOpen
+              "
+            />
+          </RailPanel>
+
+          <RailPanel
+            v-if="controls.viewFlightOpen && controls.flightRouteSettingsOpen"
+            id="flight-route-settings-panel"
+            class="flight-route-window"
+            placement="right-fourth"
+            title="航线参数"
+            tag="PARAMS"
+            close-label="关闭航线参数"
+            @close="closeFlightRouteSettings"
+          >
+            <FlightRouteSettingsPanel :selected-route-id="controls.selectedFlightRouteId" />
+          </RailPanel>
+
+          <MeasurementPanel
+            v-if="controls.measurementOpen"
+            :controls="controls"
+            :placement="getRightPanelPlacement(panelPlacement)"
+          />
+
           <AlertsPanel
             v-if="activePanelId === 'alerts'"
             :placement="getRightPanelPlacement(panelPlacement)"
@@ -580,6 +840,16 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped lang="scss">
+.flight-window,
+.flight-route-window {
+  --window-padding: 10px;
+  --window-head-padding: 8px;
+  --window-title-size: 13px;
+  --window-tag-size: 9px;
+  --window-close-size: 20px;
+  --rail-panel-width: min(300px, calc(100vw - 160px));
+}
+
 .dashboard-body {
   min-width: 0;
   min-height: 0;

@@ -61,6 +61,7 @@ pnpm format:check # oxfmt --check
 ## 编码与命名约定
 
 - 风格以 `.oxfmtrc.json` 为准：双引号、无分号、2 空格缩进。lint/format 由 `pnpm lint` / `pnpm format` 触发；pre-commit 经 lint-staged 对暂存文件跑 `oxlint --fix` + `oxfmt --write`。
+- 在 .ts 文件和 .vue 组件中编写函数时必须使用 JSDoc 声明函数的作用。
 - 组件文件名 PascalCase；composable 文件/导出以 `useXxx` 命名。
 - 代码注释与界面文案统一使用中文。
 - 样式与状态就近放在所属组件或模块内；避免不必要的全局副作用。
@@ -70,6 +71,7 @@ pnpm format:check # oxfmt --check
 - 格式：`<type>(scope): description`，type 取 `feat` / `fix` / `docs` / `refactor` / `perf` / `build` / `chore` / `test` / `ci` / `style` / `revert`；破坏性变更加 `!`。
 - scope 用模块/包名（如 `map`、`engines/cesium`），从历史中判断；不强行加 scope。
 - 中文祈使句摘要，首字母小写，无句号，不超过 72 字符；改动原因不明显时附 body。
+- 每次 commit 前必须检查 staged 内容；如果改动推动了项目进度，先更新 todo 文件再提交。
 - 无 PR/MR 模板；标题沿用同一约定；在 GitCode 上以 MR 合并。
 
 ## 架构
