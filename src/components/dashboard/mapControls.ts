@@ -1,4 +1,11 @@
-import type { ImagerySource, MapDrawGeometryType, MapDrawState, SceneMode } from "../../map"
+import type {
+  ImagerySource,
+  MapDrawGeometryType,
+  MapDrawState,
+  MeasurementMode,
+  MeasurementState,
+  SceneMode,
+} from "../../map"
 
 export type MapOperationId =
   | "scene-mode"
@@ -52,6 +59,22 @@ export const viewOperations = [
   { id: "view-center", label: "显示视角中心", icon: "bi-crosshair2", kind: "toggle" },
 ] satisfies ViewOperation[]
 
+export type MeasurementOperationId = MeasurementMode
+
+export type MeasurementOperation = {
+  id: MeasurementOperationId
+  label: string
+  icon: string
+  kind: "panel"
+}
+
+export const measurementOperations = [
+  { id: "length", label: "长度测量", icon: "bi-arrow-left-right", kind: "panel" },
+  { id: "area", label: "面积测量", icon: "bi-hexagon", kind: "panel" },
+  { id: "point-height", label: "点位高度", icon: "bi-triangle", kind: "panel" },
+  { id: "point-terrain-height", label: "点位地形高度", icon: "bi-mountain", kind: "panel" },
+] satisfies MeasurementOperation[]
+
 export type MapControls = {
   sceneMode: SceneMode
   rotateEnabled: boolean
@@ -66,6 +89,8 @@ export type MapControls = {
   viewFlightOpen: boolean
   selectedFlightRouteId: string
   flightRouteSettingsOpen: boolean
+  measurementOpen: boolean
+  measurementState: MeasurementState
   terrainScale: number
   basemapOpen: boolean
   basemapSources: ImagerySource[]
@@ -79,6 +104,10 @@ export type MapControls = {
   activateViewOperation: (operationId: ViewOperationId) => void
   closeViewPanel: () => void
   closeFlightRouteSettings: () => void
+  activateMeasurementOperation: (operationId: MeasurementOperationId) => void
+  closeMeasurementPanel: () => void
+  undoMeasurementPoint: () => void
+  clearMeasurement: () => void
   handleTerrainScaleInput: (event: Event) => void
   closeTerrainPanel: () => void
   closeBasemapPanel: () => void

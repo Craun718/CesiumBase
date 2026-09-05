@@ -11,6 +11,8 @@ import type {
   MapBounds,
   MapClickListener,
   MapCoordinate,
+  MeasurementMode,
+  MeasurementState,
   MapEngine,
   MapEngineLoader,
   MapDrawFeature,
@@ -52,12 +54,16 @@ export class MapController {
   private disposeEngineMapClick?: () => void
   private disposeEngineFlightState?: () => void
   private disposeEngineDrawingState?: () => void
+  private disposeEngineMeasurementState?: () => void
+  private measurementState: MeasurementState = createIdleMeasurementState()
+  private requestedMeasurementMode: MeasurementMode | null = null
 
   private readonly mountStateListeners = new Set<(ready: boolean) => void>()
   private readonly coordinateReadoutListeners = new Set<(readout: CoordinateReadout) => void>()
   private readonly mapClickListeners = new Set<MapClickListener>()
   private readonly flightPlaybackStateListeners = new Set<(state: FlightPlaybackState) => void>()
   private readonly drawingStateListeners = new Set<(state: MapDrawState) => void>()
+  private readonly measurementStateListeners = new Set<(state: MeasurementState) => void>()
 
   constructor(createEngine = loadMapEngine) {
     this.createEngine = createEngine
@@ -74,6 +80,10 @@ export class MapController {
     const engine = createEngine()
     await engine.mount(container)
     this.engine = engine
+    if (this.requestedMeasurementMode !== null) {
+      engine.setMeasurementMode(this.requestedMeasurementMode)
+    }
+    this.measurementState = engine.getMeasurementState()
     this.disposeEngineCoordinateReadout = engine.onCoordinateReadoutChange((readout) => {
       for (const listener of this.coordinateReadoutListeners) {
         listener(readout)
@@ -92,6 +102,10 @@ export class MapController {
     this.disposeEngineDrawingState = engine.onDrawingStateChange((state) => {
       this.notifyDrawingState(state)
     })
+    this.disposeEngineMeasurementState = engine.onMeasurementStateChange((state) => {
+      this.measurementState = state
+      this.notifyMeasurementState(state)
+    })
     this.notifyMountState(true)
   }
 
@@ -105,8 +119,12 @@ export class MapController {
     this.disposeEngineFlightState = undefined
     this.disposeEngineDrawingState?.()
     this.disposeEngineDrawingState = undefined
+    this.disposeEngineMeasurementState?.()
+    this.disposeEngineMeasurementState = undefined
     this.engine?.unmount()
     this.engine = undefined
+    this.measurementState = createIdleMeasurementState()
+    this.notifyMeasurementState(this.measurementState)
     this.notifyMountState(false)
     this.notifyFlightPlaybackState(defaultFlightPlaybackState)
     this.notifyDrawingState(emptyDrawingState)
@@ -387,6 +405,47 @@ export class MapController {
     }
   }
 
+  /** 切换地图测量模式；地图未挂载时不产生副作用。 */
+  setMeasurementMode(mode: MeasurementState["mode"]) {
+    this.requestedMeasurementMode = mode
+
+    if (!this.engine) {
+      this.measurementState = createIdleMeasurementState(mode)
+      this.notifyMeasurementState(this.measurementState)
+      return
+    }
+
+    this.engine.setMeasurementMode(mode)
+  }
+
+  /** 撤销当前测量的最后一个确认点。 */
+  undoMeasurementPoint() {
+    this.engine?.undoMeasurementPoint()
+  }
+
+  /** 清空当前测量点并保留测量模式。 */
+  clearMeasurement() {
+    this.engine?.clearMeasurement()
+  }
+
+  /** 读取当前测量状态；地图未挂载时返回空状态。 */
+  getMeasurementState(): MeasurementState {
+    return this.measurementState
+  }
+
+  /** 监听测量状态变化，返回取消监听函数。 */
+  onMeasurementStateChange(listener: (state: MeasurementState) => void) {
+    this.measurementStateListeners.add(listener)
+
+    if (this.measurementState.mode !== null) {
+      listener(this.measurementState)
+    }
+
+    return () => {
+      this.measurementStateListeners.delete(listener)
+    }
+  }
+
   /** 通知地图挂载状态监听器。 */
   private notifyMountState(ready: boolean) {
     for (const listener of this.mountStateListeners) {
@@ -399,5 +458,23 @@ export class MapController {
     for (const listener of this.flightPlaybackStateListeners) {
       listener(state)
     }
+  }
+
+  /** 向界面层广播当前测量状态。 */
+  private notifyMeasurementState(state: MeasurementState) {
+    for (const listener of this.measurementStateListeners) {
+      listener(state)
+    }
+  }
+}
+
+/** 创建未开始测量的默认状态。 */
+function createIdleMeasurementState(mode: MeasurementMode | null = null): MeasurementState {
+  return {
+    mode,
+    points: [],
+    previewPoint: undefined,
+    resultValue: undefined,
+    error: undefined,
   }
 }
