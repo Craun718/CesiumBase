@@ -1,10 +1,15 @@
 import { loadMapEngine } from "./engineProvider"
+import { DEFAULT_FLIGHT_PITCH, DEFAULT_FLIGHT_SPEED } from "./flightRoute"
 import type {
   CameraState,
   CameraFlightOptions,
   CoordinateReadout,
+  FlightPlaybackSettings,
+  FlightPlaybackState,
+  FlightRoute,
   ImagerySource,
   MapBounds,
+  MapClickListener,
   MapCoordinate,
   MapEngine,
   MapEngineLoader,
@@ -19,6 +24,15 @@ const guangxiBounds: MapBounds = {
   north: 26.5,
 }
 
+const defaultFlightPlaybackState: FlightPlaybackState = {
+  status: "idle",
+  progress: 0,
+  speed: DEFAULT_FLIGHT_SPEED,
+  pitch: DEFAULT_FLIGHT_PITCH,
+  loop: false,
+  totalDistance: 0,
+}
+
 export class MapController {
   private engine?: MapEngine
 
@@ -26,9 +40,13 @@ export class MapController {
 
   private mountGeneration = 0
   private disposeEngineCoordinateReadout?: () => void
+  private disposeEngineMapClick?: () => void
+  private disposeEngineFlightState?: () => void
 
   private readonly mountStateListeners = new Set<(ready: boolean) => void>()
   private readonly coordinateReadoutListeners = new Set<(readout: CoordinateReadout) => void>()
+  private readonly mapClickListeners = new Set<MapClickListener>()
+  private readonly flightPlaybackStateListeners = new Set<(state: FlightPlaybackState) => void>()
 
   constructor(createEngine = loadMapEngine) {
     this.createEngine = createEngine
@@ -50,6 +68,16 @@ export class MapController {
         listener(readout)
       }
     })
+    this.disposeEngineMapClick = engine.onMapClick((coordinate) => {
+      for (const listener of this.mapClickListeners) {
+        listener(coordinate)
+      }
+    })
+    this.disposeEngineFlightState = engine.onFlightPlaybackStateChange((state) => {
+      for (const listener of this.flightPlaybackStateListeners) {
+        listener(state)
+      }
+    })
     this.notifyMountState(true)
   }
 
@@ -57,9 +85,14 @@ export class MapController {
     this.mountGeneration += 1
     this.disposeEngineCoordinateReadout?.()
     this.disposeEngineCoordinateReadout = undefined
+    this.disposeEngineMapClick?.()
+    this.disposeEngineMapClick = undefined
+    this.disposeEngineFlightState?.()
+    this.disposeEngineFlightState = undefined
     this.engine?.unmount()
     this.engine = undefined
     this.notifyMountState(false)
+    this.notifyFlightPlaybackState(defaultFlightPlaybackState)
   }
 
   /** 监听引擎挂载/卸载状态；注册时若已挂载会立即以 true 回调一次。 */
@@ -152,6 +185,70 @@ export class MapController {
     return this.engine?.onCameraStateChange(listener) ?? (() => {})
   }
 
+  /** 监听地图点击命中的地面坐标，返回取消监听函数。 */
+  onMapClick(listener: MapClickListener) {
+    this.mapClickListeners.add(listener)
+
+    return () => {
+      this.mapClickListeners.delete(listener)
+    }
+  }
+
+  /** 设置当前航线的地图预览。 */
+  setFlightRoutePreview(route: FlightRoute) {
+    this.engine?.setFlightRoutePreview(route)
+  }
+
+  /** 清理航线地图预览。 */
+  clearFlightRoutePreview() {
+    this.engine?.clearFlightRoutePreview()
+  }
+
+  /** 采样地形并启动飞行漫游。 */
+  async startFlight(route: FlightRoute) {
+    return (await this.engine?.startFlight(route)) ?? false
+  }
+
+  /** 暂停飞行漫游。 */
+  pauseFlight() {
+    this.engine?.pauseFlight()
+  }
+
+  /** 继续暂停或已结束的飞行漫游。 */
+  resumeFlight() {
+    this.engine?.resumeFlight()
+  }
+
+  /** 停止飞行漫游并清空播放状态。 */
+  stopFlight() {
+    this.engine?.stopFlight()
+  }
+
+  /** 按归一化进度定位飞行漫游。 */
+  seekFlight(progress: number) {
+    this.engine?.seekFlight(progress)
+  }
+
+  /** 更新飞行漫游播放期参数。 */
+  updateFlightPlayback(settings: FlightPlaybackSettings) {
+    this.engine?.updateFlightPlayback(settings)
+  }
+
+  /** 读取当前飞行漫游状态。 */
+  getFlightPlaybackState(): FlightPlaybackState {
+    return this.engine?.getFlightPlaybackState() ?? defaultFlightPlaybackState
+  }
+
+  /** 监听飞行漫游状态；注册时会立即回调当前状态。 */
+  onFlightPlaybackStateChange(listener: (state: FlightPlaybackState) => void) {
+    this.flightPlaybackStateListeners.add(listener)
+    listener(this.getFlightPlaybackState())
+
+    return () => {
+      this.flightPlaybackStateListeners.delete(listener)
+    }
+  }
+
   getCoordinateReadout(): CoordinateReadout | undefined {
     return this.engine?.getCoordinateReadout()
   }
@@ -208,9 +305,17 @@ export class MapController {
     return (await this.engine?.setTerrainSource(source)) ?? false
   }
 
+  /** 通知地图挂载状态监听器。 */
   private notifyMountState(ready: boolean) {
     for (const listener of this.mountStateListeners) {
       listener(ready)
+    }
+  }
+
+  /** 通知飞行漫游状态监听器。 */
+  private notifyFlightPlaybackState(state: FlightPlaybackState) {
+    for (const listener of this.flightPlaybackStateListeners) {
+      listener(state)
     }
   }
 }

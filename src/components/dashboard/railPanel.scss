@@ -27,12 +27,26 @@
   left: calc(100% + 2 * var(--rail-map-gap, 18px) + var(--map-menu-width, 302px));
 }
 
+.panel-left-fourth {
+  left: calc(
+    100% + 3 * var(--rail-map-gap, 18px) + var(--map-menu-width, 302px) +
+      var(--rail-panel-width, 302px)
+  );
+}
+
 .panel-right {
   right: calc(100% + var(--rail-map-gap, 18px));
 }
 
 .panel-right-third {
   right: calc(100% + 2 * var(--rail-map-gap, 18px) + var(--map-menu-width, 302px));
+}
+
+.panel-right-fourth {
+  right: calc(
+    100% + 3 * var(--rail-map-gap, 18px) + var(--map-menu-width, 302px) +
+      var(--rail-panel-width, 302px)
+  );
 }
 
 @media (max-width: 1023px) {

@@ -14,7 +14,13 @@ export type RailAction<ActionId extends string = string> = {
   customMenu?: boolean
 }
 
-export type RailPanelPlacement = "left" | "left-third" | "right" | "right-third"
+export type RailPanelPlacement =
+  | "left"
+  | "left-third"
+  | "left-fourth"
+  | "right"
+  | "right-third"
+  | "right-fourth"
 
 export type ExternalPanelControl = {
   controlId: string

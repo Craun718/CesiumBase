@@ -1,6 +1,6 @@
 import { ref } from "vue"
 import { defineStore } from "pinia"
-import type { ViewFavorite } from "../map"
+import type { FlightRoute, ViewFavorite } from "../map"
 
 // 本地 store：数据持久化到 localStorage，跨标签页与会话保留
 export const useLocalStore = defineStore(
@@ -14,12 +14,15 @@ export const useLocalStore = defineStore(
     const customBaseMapUrl = ref<string>("")
     // 收藏视角：相机参数与压缩截图一起保存在本机
     const viewFavorites = ref<ViewFavorite[]>([])
+    // 飞行漫游航线：航点与播放参数一起保存在本机
+    const flightRoutes = ref<FlightRoute[]>([])
 
     return {
       lastVisitedAt,
       preferences,
       customBaseMapUrl,
       viewFavorites,
+      flightRoutes,
     }
   },
   {

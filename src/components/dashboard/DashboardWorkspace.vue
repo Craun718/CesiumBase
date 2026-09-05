@@ -19,6 +19,8 @@ import OperationsRail from "./OperationsRail.vue"
 import RailPanel from "./RailPanel.vue"
 import ResourcesPanel from "./ResourcesPanel.vue"
 import TerrainPanel from "./TerrainPanel.vue"
+import FlightTourPanel from "../FlightTourPanel.vue"
+import FlightRouteSettingsPanel from "../FlightRouteSettingsPanel.vue"
 import ViewFavoritesPanel from "../ViewFavoritesPanel.vue"
 import ViewOperationsPanel from "../ViewOperationsPanel.vue"
 import type { OperationMenuItem, RailAction, RailCommand, RailPanelPlacement } from "./operations"
@@ -49,6 +51,9 @@ const viewCenterVisible = ref(false)
 const viewPositionOpen = ref(false)
 const viewCameraOpen = ref(false)
 const viewFavoritesOpen = ref(false)
+const viewFlightOpen = ref(false)
+const selectedFlightRouteId = ref("")
+const flightRouteSettingsOpen = ref(false)
 const terrainScale = ref(1)
 const basemapOpen = ref(false)
 const basemapSources = ref<ImagerySource[]>([])
@@ -157,6 +162,8 @@ function activateViewOperation(operationId: ViewOperationId) {
   if (operationId === "view-position") {
     viewCameraOpen.value = false
     viewFavoritesOpen.value = false
+    viewFlightOpen.value = false
+    flightRouteSettingsOpen.value = false
     viewPositionOpen.value = !viewPositionOpen.value
     return
   }
@@ -164,6 +171,8 @@ function activateViewOperation(operationId: ViewOperationId) {
   if (operationId === "view-camera") {
     viewPositionOpen.value = false
     viewFavoritesOpen.value = false
+    viewFlightOpen.value = false
+    flightRouteSettingsOpen.value = false
     viewCameraOpen.value = !viewCameraOpen.value
     return
   }
@@ -171,7 +180,18 @@ function activateViewOperation(operationId: ViewOperationId) {
   if (operationId === "view-favorites") {
     viewPositionOpen.value = false
     viewCameraOpen.value = false
+    viewFlightOpen.value = false
+    flightRouteSettingsOpen.value = false
     viewFavoritesOpen.value = !viewFavoritesOpen.value
+    return
+  }
+
+  if (operationId === "view-flight") {
+    viewPositionOpen.value = false
+    viewCameraOpen.value = false
+    viewFavoritesOpen.value = false
+    flightRouteSettingsOpen.value = false
+    viewFlightOpen.value = !viewFlightOpen.value
     return
   }
 
@@ -198,6 +218,13 @@ function closeViewPanel() {
   viewPositionOpen.value = false
   viewCameraOpen.value = false
   viewFavoritesOpen.value = false
+  viewFlightOpen.value = false
+  flightRouteSettingsOpen.value = false
+}
+
+/** 关闭航线参数四级面板。 */
+function closeFlightRouteSettings() {
+  flightRouteSettingsOpen.value = false
 }
 
 function handleTerrainScaleInput(event: Event) {
@@ -303,6 +330,9 @@ const controls = reactive({
   viewPositionOpen,
   viewCameraOpen,
   viewFavoritesOpen,
+  viewFlightOpen,
+  selectedFlightRouteId,
+  flightRouteSettingsOpen,
   terrainScale,
   basemapOpen,
   basemapSources,
@@ -314,6 +344,7 @@ const controls = reactive({
   activateMapOperation,
   activateViewOperation,
   closeViewPanel,
+  closeFlightRouteSettings,
   handleTerrainScaleInput,
   closeTerrainPanel,
   closeBasemapPanel,
@@ -372,7 +403,8 @@ const viewMenuItems = computed<Array<OperationMenuItem<ViewOperationId>>>(() =>
       (operation.id === "view-center" && controls.viewCenterVisible) ||
       (operation.id === "view-position" && controls.viewPositionOpen) ||
       (operation.id === "view-camera" && controls.viewCameraOpen) ||
-      (operation.id === "view-favorites" && controls.viewFavoritesOpen),
+      (operation.id === "view-favorites" && controls.viewFavoritesOpen) ||
+      (operation.id === "view-flight" && controls.viewFlightOpen),
   })),
 )
 
@@ -395,6 +427,10 @@ function getRightExternalPanel(actionId: RightActionId) {
 
   if (controls.viewFavoritesOpen) {
     return { controlId: "right-view-favorites-panel", close: closeViewPanel }
+  }
+
+  if (controls.viewFlightOpen) {
+    return { controlId: "right-view-flight-panel", close: closeViewPanel }
   }
 
   return undefined
@@ -555,6 +591,38 @@ onBeforeUnmount(() => {
             <ViewFavoritesPanel />
           </RailPanel>
 
+          <RailPanel
+            v-if="controls.viewFlightOpen"
+            id="right-view-flight-panel"
+            class="flight-window"
+            :placement="getRightPanelPlacement(panelPlacement)"
+            title="飞行漫游"
+            tag="FLIGHT"
+            close-label="关闭飞行漫游"
+            @close="closeViewPanel"
+          >
+            <FlightTourPanel
+              v-model:selected-route-id="controls.selectedFlightRouteId"
+              :settings-open="controls.flightRouteSettingsOpen"
+              @toggle-settings="
+                controls.flightRouteSettingsOpen = !controls.flightRouteSettingsOpen
+              "
+            />
+          </RailPanel>
+
+          <RailPanel
+            v-if="controls.viewFlightOpen && controls.flightRouteSettingsOpen"
+            id="flight-route-settings-panel"
+            class="flight-route-window"
+            placement="right-fourth"
+            title="航线参数"
+            tag="PARAMS"
+            close-label="关闭航线参数"
+            @close="closeFlightRouteSettings"
+          >
+            <FlightRouteSettingsPanel :selected-route-id="controls.selectedFlightRouteId" />
+          </RailPanel>
+
           <AlertsPanel
             v-if="activePanelId === 'alerts'"
             :placement="getRightPanelPlacement(panelPlacement)"
@@ -580,6 +648,16 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped lang="scss">
+.flight-window,
+.flight-route-window {
+  --window-padding: 10px;
+  --window-head-padding: 8px;
+  --window-title-size: 13px;
+  --window-tag-size: 9px;
+  --window-close-size: 20px;
+  --rail-panel-width: min(300px, calc(100vw - 160px));
+}
+
 .dashboard-body {
   min-width: 0;
   min-height: 0;

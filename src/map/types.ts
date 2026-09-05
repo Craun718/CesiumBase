@@ -24,6 +24,44 @@ export interface CameraFlightOptions {
   readonly onCancel?: () => void
 }
 
+/** 飞行漫游航点；height 为可选的绝对海拔高度，单位米。 */
+export interface FlightWaypoint {
+  readonly longitude: number
+  readonly latitude: number
+  readonly height?: number
+}
+
+/** 本地持久化的飞行漫游航线。 */
+export interface FlightRoute {
+  readonly id: string
+  readonly name: string
+  readonly waypoints: FlightWaypoint[]
+  readonly defaultHeight: number
+  readonly safetyClearance: number
+  readonly speed: number
+  readonly pitch: number
+  readonly loop: boolean
+  readonly createdAt: string
+  readonly updatedAt: string
+}
+
+export type FlightPlaybackStatus = "idle" | "preparing" | "playing" | "paused" | "completed"
+
+export interface FlightPlaybackState {
+  readonly status: FlightPlaybackStatus
+  readonly progress: number
+  readonly speed: number
+  readonly pitch: number
+  readonly loop: boolean
+  readonly totalDistance: number
+  readonly error?: string
+}
+
+export interface FlightPlaybackSettings {
+  readonly speed?: number
+  readonly loop?: boolean
+}
+
 /** 本地持久化的收藏视角；screenshot 为空字符串表示截图生成失败。 */
 export interface ViewFavorite {
   readonly id: string
@@ -39,6 +77,8 @@ export interface MapCoordinate {
   readonly longitude: number
   readonly latitude: number
 }
+
+export type MapClickListener = (coordinate: MapCoordinate) => void
 
 /** 状态栏坐标读数；pointer 表示鼠标命中地球，view 表示显示视图中心。 */
 export interface CoordinateReadout {
@@ -99,6 +139,23 @@ export interface MapEngine {
   flyToCameraState(state: CameraState, options?: CameraFlightOptions): void
   /** 监听相机参数变化，返回取消监听函数。 */
   onCameraStateChange(listener: (state: CameraState) => void): () => void
+  /** 监听地图左键点击命中的地面坐标，返回取消监听函数。 */
+  onMapClick(listener: MapClickListener): () => void
+  /** 预览飞行航线与航点；航线非法时清理旧预览。 */
+  setFlightRoutePreview(route: FlightRoute): void
+  /** 清理飞行航线预览。 */
+  clearFlightRoutePreview(): void
+  /** 采样地形并开始播放；准备失败时返回 false。 */
+  startFlight(route: FlightRoute): Promise<boolean>
+  pauseFlight(): void
+  resumeFlight(): void
+  stopFlight(): void
+  /** 按 0~1 进度定位播放位置。 */
+  seekFlight(progress: number): void
+  /** 更新播放期参数；非法值会被忽略。 */
+  updateFlightPlayback(settings: FlightPlaybackSettings): void
+  getFlightPlaybackState(): FlightPlaybackState
+  onFlightPlaybackStateChange(listener: (state: FlightPlaybackState) => void): () => void
   /** 读取状态栏坐标读数；地图尚未就绪时返回 undefined。 */
   getCoordinateReadout(): CoordinateReadout | undefined
   /** 监听坐标读数变化；鼠标离开地图或未命中地球时回落到视图中心。 */

@@ -4,7 +4,11 @@ import type {
   CameraFlightOptions,
   CameraState,
   CoordinateReadout,
+  FlightPlaybackSettings,
+  FlightPlaybackState,
+  FlightRoute,
   ImagerySource,
+  MapClickListener,
   MapCoordinate,
   MapEngine,
   MapBounds,
@@ -29,6 +33,20 @@ import {
   setInitialCamera,
 } from "./cameraOperations"
 import { getPointerReadout, getViewReadout } from "./pointerReadout"
+import {
+  clearFlightRoutePreview,
+  destroyFlight,
+  getFlightPlaybackState,
+  onFlightPlaybackStateChange,
+  pauseFlight,
+  pickFlightCoordinate,
+  resumeFlight,
+  seekFlight,
+  setFlightRoutePreview,
+  startFlight,
+  stopFlight,
+  updateFlightPlayback,
+} from "./flightOperations"
 import {
   configureScene,
   setNorthLock,
@@ -56,6 +74,7 @@ export class CesiumMapEngine implements MapEngine {
   private coordinateReadoutRefreshedAt = 0
   private terrainSourceGeneration = 0
   private readonly coordinateReadoutListeners = new Set<(readout: CoordinateReadout) => void>()
+  private readonly mapClickListeners = new Set<MapClickListener>()
 
   async mount(container: HTMLElement) {
     if (this.viewer) return
@@ -73,6 +92,14 @@ export class CesiumMapEngine implements MapEngine {
     void addProvinceBoundaries(viewer)
 
     this.pointerHandler = new Cesium.ScreenSpaceEventHandler(viewer.canvas)
+    this.pointerHandler.setInputAction(({ position }: { position: Cesium.Cartesian2 }) => {
+      const coordinate = pickFlightCoordinate(viewer, position)
+      if (!coordinate) return
+
+      for (const listener of this.mapClickListeners) {
+        listener(coordinate)
+      }
+    }, Cesium.ScreenSpaceEventType.LEFT_CLICK)
     this.pointerHandler.setInputAction(({ endPosition }: { endPosition: Cesium.Cartesian2 }) => {
       this.lastPointerPosition = { x: endPosition.x, y: endPosition.y }
       this.setCoordinateReadout(getPointerReadout(viewer, endPosition))
@@ -105,6 +132,9 @@ export class CesiumMapEngine implements MapEngine {
 
   unmount() {
     this.terrainSourceGeneration += 1
+    if (this.viewer && !this.viewer.isDestroyed()) {
+      destroyFlight(this.viewer)
+    }
     this.disposePointerReadout?.()
     this.disposePointerReadout = undefined
     this.pointerHandler?.destroy()
@@ -140,6 +170,7 @@ export class CesiumMapEngine implements MapEngine {
     const viewer = this.getActiveViewer()
 
     if (viewer) {
+      if (mode === "2d") stopFlight(viewer)
       setSceneMode(viewer, mode)
     }
   }
@@ -164,6 +195,7 @@ export class CesiumMapEngine implements MapEngine {
     const viewer = this.getActiveViewer()
 
     if (viewer) {
+      stopFlight(viewer)
       setTerrainExaggeration(viewer, enabled, scale)
     }
   }
@@ -172,6 +204,7 @@ export class CesiumMapEngine implements MapEngine {
     const viewer = this.getActiveViewer()
 
     if (viewer) {
+      stopFlight(viewer)
       setTerrainExaggerationScale(viewer, scale)
     }
   }
@@ -245,6 +278,83 @@ export class CesiumMapEngine implements MapEngine {
     return viewer ? onCameraStateChange(viewer, listener) : () => {}
   }
 
+  /** 监听地图点击命中的地面坐标，返回取消监听函数。 */
+  onMapClick(listener: MapClickListener) {
+    this.mapClickListeners.add(listener)
+    return () => {
+      this.mapClickListeners.delete(listener)
+    }
+  }
+
+  /** 设置当前航线的 Cesium 实体预览。 */
+  setFlightRoutePreview(route: FlightRoute) {
+    const viewer = this.getActiveViewer()
+    if (viewer) setFlightRoutePreview(viewer, route)
+  }
+
+  /** 清理航线 Cesium 实体预览。 */
+  clearFlightRoutePreview() {
+    const viewer = this.getActiveViewer()
+    if (viewer) clearFlightRoutePreview(viewer)
+  }
+
+  /** 采样地形并启动飞行漫游。 */
+  async startFlight(route: FlightRoute) {
+    const viewer = this.getActiveViewer()
+    return viewer ? startFlight(viewer, route) : false
+  }
+
+  /** 暂停飞行漫游。 */
+  pauseFlight() {
+    const viewer = this.getActiveViewer()
+    if (viewer) pauseFlight(viewer)
+  }
+
+  /** 继续暂停或已结束的飞行漫游。 */
+  resumeFlight() {
+    const viewer = this.getActiveViewer()
+    if (viewer) resumeFlight(viewer)
+  }
+
+  /** 停止飞行漫游并清空播放状态。 */
+  stopFlight() {
+    const viewer = this.getActiveViewer()
+    if (viewer) stopFlight(viewer)
+  }
+
+  /** 按归一化进度定位飞行漫游。 */
+  seekFlight(progress: number) {
+    const viewer = this.getActiveViewer()
+    if (viewer) seekFlight(viewer, progress)
+  }
+
+  /** 更新飞行漫游播放期参数。 */
+  updateFlightPlayback(settings: FlightPlaybackSettings) {
+    const viewer = this.getActiveViewer()
+    if (viewer) updateFlightPlayback(viewer, settings)
+  }
+
+  /** 读取当前飞行漫游状态。 */
+  getFlightPlaybackState(): FlightPlaybackState {
+    const viewer = this.getActiveViewer()
+    return viewer
+      ? getFlightPlaybackState(viewer)
+      : {
+          status: "idle",
+          progress: 0,
+          speed: 60,
+          pitch: -20,
+          loop: false,
+          totalDistance: 0,
+        }
+  }
+
+  /** 监听飞行漫游状态变化，返回取消监听函数。 */
+  onFlightPlaybackStateChange(listener: (state: FlightPlaybackState) => void) {
+    const viewer = this.getActiveViewer()
+    return viewer ? onFlightPlaybackStateChange(viewer, listener) : () => {}
+  }
+
   getCoordinateReadout(): CoordinateReadout | undefined {
     return this.coordinateReadout
   }
@@ -313,6 +423,7 @@ export class CesiumMapEngine implements MapEngine {
     const viewer = this.getActiveViewer()
     if (!viewer) return false
 
+    stopFlight(viewer)
     const generation = ++this.terrainSourceGeneration
     const provider = await createCesiumTerrainProvider(source)
 

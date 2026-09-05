@@ -30,6 +30,7 @@ export type ViewOperationId =
   | "view-position"
   | "view-camera"
   | "view-favorites"
+  | "view-flight"
   | "view-fullscreen"
   | "view-screenshot"
   | "view-center"
@@ -45,6 +46,7 @@ export const viewOperations = [
   { id: "view-position", label: "视角定位", icon: "bi-crosshair", kind: "panel" },
   { id: "view-camera", label: "相机参数", icon: "bi-camera-reels", kind: "panel" },
   { id: "view-favorites", label: "视图收藏", icon: "bi-bookmark-star", kind: "panel" },
+  { id: "view-flight", label: "飞行漫游", icon: "bi-signpost-split", kind: "panel" },
   { id: "view-fullscreen", label: "场景全屏", icon: "bi-arrows-fullscreen", kind: "command" },
   { id: "view-screenshot", label: "场景截屏下载", icon: "bi-camera", kind: "command" },
   { id: "view-center", label: "显示视角中心", icon: "bi-crosshair2", kind: "toggle" },
@@ -61,6 +63,9 @@ export type MapControls = {
   viewPositionOpen: boolean
   viewCameraOpen: boolean
   viewFavoritesOpen: boolean
+  viewFlightOpen: boolean
+  selectedFlightRouteId: string
+  flightRouteSettingsOpen: boolean
   terrainScale: number
   basemapOpen: boolean
   basemapSources: ImagerySource[]
@@ -72,6 +77,7 @@ export type MapControls = {
   activateMapOperation: (operationId: MapOperationId) => void
   activateViewOperation: (operationId: ViewOperationId) => void
   closeViewPanel: () => void
+  closeFlightRouteSettings: () => void
   handleTerrainScaleInput: (event: Event) => void
   closeTerrainPanel: () => void
   closeBasemapPanel: () => void
