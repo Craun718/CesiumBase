@@ -406,6 +406,7 @@ function createIdleMeasurementState(): MeasurementState {
     mode: null,
     points: [],
     previewPoint: undefined,
+    completed: false,
     resultValue: undefined,
     error: undefined,
   }

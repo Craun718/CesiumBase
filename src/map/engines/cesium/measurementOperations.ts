@@ -19,9 +19,11 @@ export class CesiumMeasurementController {
   private mode: MeasurementMode | null = null
   private points: MeasurementPoint[] = []
   private previewPoint: MeasurementPoint | undefined
+  private completed = false
   private resultValue: number | undefined
   private error: string | undefined
   private entities: Cesium.Entity[] = []
+  private completedEntities: Cesium.Entity[] = []
   private lastPreviewAt = 0
 
   private readonly viewer: Cesium.Viewer
@@ -37,6 +39,10 @@ export class CesiumMeasurementController {
       Cesium.ScreenSpaceEventType.LEFT_CLICK,
     )
     this.pointerHandler.setInputAction(
+      () => this.completeMeasurement(),
+      Cesium.ScreenSpaceEventType.RIGHT_CLICK,
+    )
+    this.pointerHandler.setInputAction(
       (event: Cesium.ScreenSpaceEventHandler.MotionEvent) => this.updatePreview(event.endPosition),
       Cesium.ScreenSpaceEventType.MOUSE_MOVE,
     )
@@ -49,6 +55,7 @@ export class CesiumMeasurementController {
     this.mode = mode
     this.points = []
     this.previewPoint = undefined
+    this.completed = false
     this.resultValue = undefined
     this.error = undefined
     this.render()
@@ -61,6 +68,7 @@ export class CesiumMeasurementController {
 
     this.points.pop()
     this.previewPoint = undefined
+    this.completed = false
     this.error = undefined
     this.updateResult()
     this.render()
@@ -71,6 +79,7 @@ export class CesiumMeasurementController {
   clear() {
     this.points = []
     this.previewPoint = undefined
+    this.completed = false
     this.resultValue = undefined
     this.error = undefined
     this.render()
@@ -83,6 +92,7 @@ export class CesiumMeasurementController {
       mode: this.mode,
       points: [...this.points],
       previewPoint: this.previewPoint,
+      completed: this.completed,
       resultValue: this.resultValue,
       error: this.error,
     }
@@ -94,6 +104,7 @@ export class CesiumMeasurementController {
     this.mode = null
     this.points = []
     this.previewPoint = undefined
+    this.completed = false
     this.resultValue = undefined
     this.error = undefined
     this.removeEntities()
@@ -110,6 +121,12 @@ export class CesiumMeasurementController {
       return
     }
 
+    if (this.completed) {
+      this.archiveCompletedEntities()
+      this.points = []
+      this.completed = false
+    }
+
     if (this.mode === "point-height" || this.mode === "point-terrain-height") {
       this.points = [point]
     } else {
@@ -123,9 +140,30 @@ export class CesiumMeasurementController {
     this.emitState()
   }
 
+  /** 右键完成当前长度或面积测量，并固定已确认点的结果。 */
+  private completeMeasurement() {
+    if (!this.mode || (this.mode !== "length" && this.mode !== "area")) return
+    if (this.completed) return
+
+    const requiredPoints = this.mode === "length" ? 2 : 3
+    if (this.points.length < requiredPoints) {
+      this.error = `至少选择 ${requiredPoints} 个点后右键完成`
+      this.emitState()
+      return
+    }
+
+    this.previewPoint = undefined
+    this.completed = true
+    this.error = undefined
+    this.updateResult()
+    this.render()
+    this.emitState()
+  }
+
   /** 处理鼠标悬停预览，为线段和面提供临时端点。 */
   private updatePreview(position: Cesium.Cartesian2) {
     if (!this.mode || this.mode === "point-height" || this.mode === "point-terrain-height") return
+    if (this.completed) return
 
     const now = performance.now()
     if (now - this.lastPreviewAt < PREVIEW_INTERVAL) return
@@ -328,8 +366,18 @@ export class CesiumMeasurementController {
       for (const entity of this.entities) {
         this.viewer.entities.remove(entity)
       }
+      for (const entity of this.completedEntities) {
+        this.viewer.entities.remove(entity)
+      }
     }
 
+    this.entities = []
+    this.completedEntities = []
+  }
+
+  /** 保留已完成测量图形，并为下一次左键测量重建当前点集。 */
+  private archiveCompletedEntities() {
+    this.completedEntities.push(...this.entities)
     this.entities = []
   }
 
