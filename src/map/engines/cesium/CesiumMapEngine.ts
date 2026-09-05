@@ -10,6 +10,7 @@ import type {
   ImagerySource,
   MapClickListener,
   MapCoordinate,
+  MapDrawFeature,
   MapDrawGeometryType,
   MapEngine,
   MapBounds,
@@ -438,6 +439,11 @@ export class CesiumMapEngine implements MapEngine {
   /** 清空全部绘制内容。 */
   clearDrawings() {
     this.drawingController.clearDrawings()
+  }
+
+  /** 恢复持久化的绘制成果。 */
+  restoreDrawings(features: readonly MapDrawFeature[]) {
+    return this.drawingController.restoreDrawings(features)
   }
 
   /** 读取当前绘制状态。 */

@@ -13,6 +13,7 @@ import type {
   MapCoordinate,
   MapEngine,
   MapEngineLoader,
+  MapDrawFeature,
   MapDrawGeometryType,
   MapDrawState,
   SceneMode,
@@ -330,6 +331,11 @@ export class MapController {
   /** 清空绘制成果并取消当前草图。 */
   clearDrawings() {
     this.engine?.clearDrawings()
+  }
+
+  /** 恢复持久化的绘制成果；引擎未挂载时返回 false。 */
+  restoreDrawings(features: readonly MapDrawFeature[]) {
+    return this.engine?.restoreDrawings(features) ?? false
   }
 
   /** 读取当前绘制状态。 */

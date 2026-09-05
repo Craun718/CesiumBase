@@ -49,6 +49,8 @@ export async function createViewer(container: HTMLElement) {
     sceneModePicker: false,
     selectionIndicator: false,
     timeline: false,
+    // 使用设备物理像素渲染，避免高分屏上先按 1x 绘制再放大产生明显锯齿。
+    useBrowserRecommendedResolution: false,
     contextOptions: {
       webgl: {
         alpha: true,

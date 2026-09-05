@@ -12,6 +12,8 @@ export type RailAction<ActionId extends string = string> = {
   icon: string
   /** customMenu 由功能菜单插槽渲染；panel 使用通用二级菜单进入三级面板。 */
   customMenu?: boolean
+  /** directPanel 由一级按钮直接通知父级打开外部功能面板。 */
+  directPanel?: boolean
 }
 
 export type RailPanelPlacement =

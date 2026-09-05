@@ -19,6 +19,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   command: [commandId: CommandId]
+  panel: [actionId: ActionId]
 }>()
 
 const expandedMenuId = ref<ActionId | null>(null)
@@ -41,13 +42,38 @@ function getPanelId(actionId: ActionId) {
 }
 
 function toggleAction(actionId: ActionId) {
+  const action = props.actions.find((item) => item.id === actionId)
+  if (action?.directPanel) {
+    const externalPanel = props.getExternalPanel?.(actionId)
+    if (externalPanel) {
+      externalPanel.close()
+      return
+    }
+
+    closeOtherExternalPanels(actionId)
+    expandedMenuId.value = null
+    activePanelId.value = null
+    emit("panel", actionId)
+    return
+  }
+
   if (expandedMenuId.value === actionId) {
     expandedMenuId.value = null
     return
   }
 
+  closeOtherExternalPanels(actionId)
   expandedMenuId.value = actionId
   activePanelId.value = null
+}
+
+/** 关闭其他一级入口关联的外部面板，保证左侧功能面板互斥。 */
+function closeOtherExternalPanels(nextActionId: ActionId) {
+  for (const action of props.actions) {
+    if (action.id === nextActionId) continue
+
+    props.getExternalPanel?.(action.id)?.close()
+  }
 }
 
 function openPanel(actionId: ActionId) {

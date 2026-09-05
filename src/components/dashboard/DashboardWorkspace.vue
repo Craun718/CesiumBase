@@ -6,6 +6,7 @@ import {
   useMapController,
   type CoordinateReadout,
   type ImagerySource,
+  type MapDrawFeature,
   type MapDrawGeometryType,
   type MapDrawState,
   type SceneMode,
@@ -35,7 +36,7 @@ import {
   type ViewOperationId,
 } from "./mapControls"
 
-type LeftActionId = "overview" | "distribution" | "map" | "data"
+type LeftActionId = "overview" | "distribution" | "map" | "drawing" | "data"
 type RightActionId = "view" | "alerts" | "resources"
 type RightCommandId = "return-guangxi"
 
@@ -88,7 +89,6 @@ function isMapOperationActive(operationId: MapOperationId) {
   if (operationId === "north-lock") return northLocked.value
   if (operationId === "underground") return undergroundEnabled.value
   if (operationId === "compass") return compassVisible.value
-  if (operationId === "drawing") return drawingOpen.value
 
   return false
 }
@@ -155,20 +155,6 @@ function activateMapOperation(operationId: MapOperationId) {
     if (basemapOpen.value) return
 
     openBasemapPanel()
-    return
-  }
-
-  if (operationId === "drawing") {
-    // 地图左侧三级功能面板同一时间只保留一个。
-    if (drawingOpen.value) {
-      closeDrawingPanel()
-      return
-    }
-
-    terrainEnabled.value = false
-    mapController.setTerrainExaggeration(false, terrainScale.value)
-    basemapOpen.value = false
-    drawingOpen.value = true
     return
   }
 
@@ -329,6 +315,21 @@ function closeDrawingPanel() {
   drawingOpen.value = false
 }
 
+/** 从一级操作栏打开绘制面板，并关闭互斥的地图功能面板。 */
+function openDrawingPanel() {
+  if (drawingOpen.value) return
+
+  terrainEnabled.value = false
+  mapController.setTerrainExaggeration(false, terrainScale.value)
+  basemapOpen.value = false
+  drawingOpen.value = true
+}
+
+/** 响应左侧一级直开面板入口。 */
+function activateLeftPanel(actionId: LeftActionId) {
+  if (actionId === "drawing") openDrawingPanel()
+}
+
 /** 切换图源后保留面板，便于连续对比；关闭走面板右上角 X。 */
 function selectBasemap(id: string) {
   if (mapController.setBaseImagerySource(id)) {
@@ -378,9 +379,11 @@ function restoreEnvTerrainService() {
 
 let disposeMountState: (() => void) | undefined
 let disposeDrawingState: (() => void) | undefined
+let drawingPersistenceEnabled = false
 
 disposeMountState = mapController.onMountStateChange((ready) => {
   if (ready) {
+    restoreDrawingFeatures()
     restoreCustomBaseMapUrl()
     restoreEnvTerrainService()
   }
@@ -388,6 +391,9 @@ disposeMountState = mapController.onMountStateChange((ready) => {
 
 disposeDrawingState = mapController.onDrawingStateChange((state) => {
   drawingState.value = state
+  if (drawingPersistenceEnabled) {
+    persistDrawingFeatures(state.features)
+  }
 })
 
 onBeforeUnmount(() => {
@@ -396,6 +402,20 @@ onBeforeUnmount(() => {
   disposeDrawingState?.()
   disposeDrawingState = undefined
 })
+
+/** 保存绘制成果到本机，不保存未完成草图。 */
+function persistDrawingFeatures(features: readonly MapDrawFeature[]) {
+  localStore.drawingFeatures = features.map((feature) => ({
+    ...feature,
+    coordinates: feature.coordinates.map((coordinate) => ({ ...coordinate })),
+  }))
+}
+
+/** 引擎挂载完成后恢复本机绘制成果。 */
+function restoreDrawingFeatures() {
+  drawingPersistenceEnabled = true
+  mapController.restoreDrawings(localStore.drawingFeatures)
+}
 
 const controls = reactive({
   sceneMode,
@@ -443,6 +463,7 @@ const leftActions = [
   { id: "overview", label: "态势总览", icon: "bi-speedometer2" },
   { id: "distribution", label: "区域分布", icon: "bi-bar-chart-line" },
   { id: "map", label: "地图操作", icon: "bi-map", customMenu: true },
+  { id: "drawing", label: "绘制操作", icon: "bi-pencil", directPanel: true },
   { id: "data", label: "数据服务", icon: "bi-database" },
 ] satisfies Array<RailAction<LeftActionId>>
 
@@ -462,8 +483,7 @@ const mapMenuItems = computed<Array<OperationMenuItem<MapOperationId>>>(() =>
     active: operation.kind === "toggle" && isMapOperationActive(operation.id),
     open:
       (operation.id === "terrain" && controls.terrainEnabled) ||
-      (operation.id === "basemap" && controls.basemapOpen) ||
-      (operation.id === "drawing" && controls.drawingOpen),
+      (operation.id === "basemap" && controls.basemapOpen),
     disabled: isMapOperationDisabled(operation.id),
     disabledReason: isMapOperationDisabled(operation.id) ? "仅3D模式可用" : undefined,
     badge: operation.kind === "mode" ? controls.sceneMode.toUpperCase() : undefined,
@@ -471,11 +491,11 @@ const mapMenuItems = computed<Array<OperationMenuItem<MapOperationId>>>(() =>
 )
 
 function getLeftExternalPanel(actionId: LeftActionId) {
-  if (actionId !== "map") return
-
-  if (controls.drawingOpen) {
+  if (actionId === "drawing" && controls.drawingOpen) {
     return { controlId: "drawing-window", close: closeDrawingPanel }
   }
+
+  if (actionId !== "map") return
 
   if (controls.terrainEnabled) {
     return { controlId: "terrain-scale-window", close: closeTerrainPanel }
@@ -578,6 +598,7 @@ onBeforeUnmount(() => {
         label="左侧操作"
         :actions="leftActions"
         :get-external-panel="getLeftExternalPanel"
+        @panel="activateLeftPanel"
       >
         <template #menu="{ action, close }">
           <OperationsMenu

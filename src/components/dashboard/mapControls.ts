@@ -8,7 +8,6 @@ export type MapOperationId =
   | "underground"
   | "basemap"
   | "compass"
-  | "drawing"
 
 export type MapOperation = {
   id: MapOperationId
@@ -25,7 +24,6 @@ export const mapOperations = [
   { id: "underground", label: "地下模式", icon: "bi-layers-half", kind: "toggle" },
   { id: "basemap", label: "底图切换", icon: "bi-grid-1x2", kind: "command" },
   { id: "compass", label: "显示指北针", icon: "bi-signpost-2", kind: "toggle" },
-  { id: "drawing", label: "绘制操作", icon: "bi-pencil", kind: "command" },
 ] satisfies MapOperation[]
 
 export type ViewOperationId =

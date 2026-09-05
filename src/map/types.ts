@@ -207,6 +207,8 @@ export interface MapEngine {
   removeDrawing(id: string): boolean
   /** 取消草图并删除全部绘制成果。 */
   clearDrawings(): void
+  /** 恢复持久化的绘制成果，并替换引擎中的现有成果。 */
+  restoreDrawings(features: readonly MapDrawFeature[]): boolean
   /** 读取当前绘制状态；引擎未挂载时返回空状态。 */
   getDrawingState(): MapDrawState
   /** 监听绘制状态变化，返回取消监听函数。 */

@@ -21,6 +21,7 @@ export class CesiumDrawingController {
   private draftCoordinates: MapDrawCoordinate[] = []
   private cursorCoordinate?: MapDrawCoordinate
   private draftEntity?: Cesium.Entity
+  private draftVertexEntities: Cesium.Entity[] = []
   private readonly entities = new Map<string, Cesium.Entity>()
   private readonly features = new Map<string, MapDrawFeature>()
   private readonly stateListeners = new Set<(state: MapDrawState) => void>()
@@ -59,6 +60,7 @@ export class CesiumDrawingController {
     this.viewer = undefined
     this.dataSource = undefined
     this.draftEntity = undefined
+    this.draftVertexEntities = []
     this.draftCoordinates = []
     this.cursorCoordinate = undefined
     this.entities.clear()
@@ -161,6 +163,33 @@ export class CesiumDrawingController {
     this.notifyState()
   }
 
+  /** 恢复持久化成果；无效或重复数据会被跳过。 */
+  restoreDrawings(features: readonly MapDrawFeature[]) {
+    if (!this.viewer || !this.dataSource) return false
+
+    this.discardDraft()
+    for (const entity of this.entities.values()) {
+      this.dataSource.entities.remove(entity)
+    }
+
+    this.entities.clear()
+    this.features.clear()
+
+    const featureIds = new Set<string>()
+    for (const feature of features) {
+      if (!this.isValidFeature(feature) || featureIds.has(feature.id)) continue
+
+      featureIds.add(feature.id)
+      this.entities.set(feature.id, this.createFeatureEntity(feature))
+      this.features.set(feature.id, feature)
+      this.updateIdSeed(feature.id)
+      this.updateNameSeed(feature.name)
+    }
+
+    this.notifyState()
+    return true
+  }
+
   /** 读取当前绘制状态快照。 */
   getDrawingState(): MapDrawState {
     return {
@@ -194,6 +223,7 @@ export class CesiumDrawingController {
     }
 
     this.createDraftEntity()
+    this.createDraftVertexEntity(coordinate)
     this.notifyState()
   }
 
@@ -221,7 +251,7 @@ export class CesiumDrawingController {
     }
   }
 
-  /** 创建跟随鼠标和已确认节点的草图实体。 */
+  /** 创建跟随鼠标变化的草图线面实体。 */
   private createDraftEntity() {
     if (!this.dataSource || this.draftEntity || !this.mode) return
 
@@ -240,12 +270,16 @@ export class CesiumDrawingController {
         outlineWidth: 2,
       },
       polyline:
-        this.mode === "polyline"
+        this.mode === "polyline" || this.mode === "polygon"
           ? {
               positions: new Cesium.CallbackProperty(() => this.getPreviewCartesians(), false),
               width: 3,
               material: Cesium.Color.fromCssColorString("#48e5ff"),
-              clampToGround: true,
+              clampToGround: this.mode === "polyline",
+              show: new Cesium.CallbackProperty(
+                () => this.mode !== "polygon" || this.getPreviewCoordinates().length < 3,
+                false,
+              ),
             }
           : undefined,
       polygon:
@@ -262,6 +296,23 @@ export class CesiumDrawingController {
             }
           : undefined,
     })
+  }
+
+  /** 为已确认节点创建固定点实体，避免节点跟随鼠标预览点移动。 */
+  private createDraftVertexEntity(coordinate: MapDrawCoordinate) {
+    if (!this.dataSource) return
+
+    this.draftVertexEntities.push(
+      this.dataSource.entities.add({
+        position: this.toCartesian(coordinate),
+        point: {
+          pixelSize: 7,
+          color: Cesium.Color.fromCssColorString("#48e5ff"),
+          outlineColor: Cesium.Color.fromCssColorString("#07142a"),
+          outlineWidth: 2,
+        },
+      }),
+    )
   }
 
   /** 将绘制成果转换为 Cesium 实体。 */
@@ -357,6 +408,49 @@ export class CesiumDrawingController {
     return this.getPreviewCoordinates().map((coordinate) => this.toCartesian(coordinate))
   }
 
+  /** 校验持久化数据，避免异常 localStorage 内容破坏地图初始化。 */
+  private isValidFeature(feature: MapDrawFeature) {
+    return (
+      Boolean(feature) &&
+      typeof feature.id === "string" &&
+      feature.id.length > 0 &&
+      typeof feature.name === "string" &&
+      typeof feature.createdAt === "string" &&
+      feature.type in minimumCoordinateCounts &&
+      Array.isArray(feature.coordinates) &&
+      feature.coordinates.length >= minimumCoordinateCounts[feature.type] &&
+      feature.coordinates.every(
+        (coordinate) =>
+          coordinate &&
+          Number.isFinite(coordinate.longitude) &&
+          Number.isFinite(coordinate.latitude) &&
+          Number.isFinite(coordinate.height),
+      )
+    )
+  }
+
+  /** 根据恢复成果同步名称序号，避免新增成果名称从 001 重复。 */
+  private updateNameSeed(name: string) {
+    const match = /^绘制(?:点|折线|多边形) (\d+)$/.exec(name)
+    if (!match) return
+
+    const serial = Number.parseInt(match[1], 10)
+    if (Number.isFinite(serial) && serial > this.nameSeed) {
+      this.nameSeed = serial
+    }
+  }
+
+  /** 根据恢复成果同步实体 id 序号，避免新增成果与持久化 id 冲突。 */
+  private updateIdSeed(id: string) {
+    const match = /^map-draw-(?:point|polyline|polygon)-(\d+)$/.exec(id)
+    if (!match) return
+
+    const seed = Number.parseInt(match[1], 10)
+    if (Number.isFinite(seed) && seed > this.idSeed) {
+      this.idSeed = seed
+    }
+  }
+
   /** 将引擎无关坐标转换为 Cesium 位置。 */
   private toCartesian(coordinate: MapDrawCoordinate) {
     return Cesium.Cartesian3.fromDegrees(
@@ -372,7 +466,12 @@ export class CesiumDrawingController {
       this.dataSource.entities.remove(this.draftEntity)
     }
 
+    for (const entity of this.draftVertexEntities) {
+      this.dataSource?.entities.remove(entity)
+    }
+
     this.draftEntity = undefined
+    this.draftVertexEntities = []
     this.draftCoordinates = []
     this.cursorCoordinate = undefined
   }

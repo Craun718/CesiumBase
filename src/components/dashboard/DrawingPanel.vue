@@ -48,22 +48,14 @@ const typeLabels: Record<MapDrawGeometryType, string> = {
 const activeMode = computed(() =>
   drawModes.find((mode) => mode.id === props.controls.drawingState.mode),
 )
-const activeCoordinateCount = computed(() => props.controls.drawingState.activeCoordinates.length)
 const featureCount = computed(() => props.controls.drawingState.features.length)
-const canFinish = computed(
-  () =>
-    activeMode.value !== undefined &&
-    activeCoordinateCount.value >= activeMode.value.minimumCoordinates,
-)
-const canCancel = computed(() => activeCoordinateCount.value > 0)
-const canClear = computed(() => canCancel.value || featureCount.value > 0)
 
-/** 汇总成果节点数和首点坐标，用于窄面板内的结果扫描。 */
-function getFeatureSummary(feature: MapDrawFeature) {
+/** 读取成果首点坐标，用于窄面板内的结果扫描。 */
+function getFeatureCoordinate(feature: MapDrawFeature) {
   const first = feature.coordinates[0]
   const firstText = first ? `${first.longitude.toFixed(5)}°, ${first.latitude.toFixed(5)}°` : "--"
 
-  return `${feature.coordinates.length} 节点 · ${firstText}`
+  return firstText
 }
 </script>
 
@@ -101,59 +93,28 @@ function getFeatureSummary(feature: MapDrawFeature) {
         <small>{{ activeMode?.hint ?? "选择类型后开始绘制" }}</small>
       </div>
 
-      <div class="drawing-count">{{ activeCoordinateCount }} 个已确认节点</div>
-
-      <div class="drawing-actions" aria-label="绘制操作">
-        <button
-          type="button"
-          title="完成当前绘制"
-          aria-label="完成当前绘制"
-          :disabled="!canFinish"
-          @click="controls.finishDrawing()"
-        >
-          <i class="bi bi-check2" aria-hidden="true"></i>
-        </button>
-        <button
-          type="button"
-          title="取消当前绘制"
-          aria-label="取消当前绘制"
-          :disabled="!canCancel"
-          @click="controls.cancelDrawing()"
-        >
-          <i class="bi bi-x-lg" aria-hidden="true"></i>
-        </button>
-        <button
-          class="is-danger"
-          type="button"
-          title="清空绘制成果"
-          aria-label="清空绘制成果"
-          :disabled="!canClear"
-          @click="controls.clearDrawings()"
-        >
-          <i class="bi bi-trash3" aria-hidden="true"></i>
-        </button>
-      </div>
-
       <div class="drawing-results-head">
         <span>绘制成果</span>
-        <strong>{{ featureCount }}</strong>
       </div>
 
       <p v-if="featureCount === 0" class="drawing-empty">暂无绘制成果</p>
       <ul v-else class="drawing-results" aria-label="绘制成果列表">
         <li v-for="feature in controls.drawingState.features" :key="feature.id">
-          <div class="result-meta">
-            <span>{{ typeLabels[feature.type] }}</span>
-            <small>{{ getFeatureSummary(feature) }}</small>
+          <div class="result-info">
+            <input
+              :value="feature.name"
+              type="text"
+              spellcheck="false"
+              :aria-label="`重命名 ${feature.name}`"
+              @change="controls.renameDrawing($event, feature.id)"
+            />
+            <div class="result-meta">
+              <span>{{ typeLabels[feature.type] }}</span>
+              <small>{{ getFeatureCoordinate(feature) }}</small>
+            </div>
           </div>
-          <input
-            :value="feature.name"
-            type="text"
-            spellcheck="false"
-            :aria-label="`重命名 ${feature.name}`"
-            @change="controls.renameDrawing($event, feature.id)"
-          />
           <button
+            class="result-remove"
             type="button"
             title="删除绘制成果"
             :aria-label="`删除 ${feature.name}`"
@@ -348,35 +309,48 @@ function getFeatureSummary(feature: MapDrawFeature) {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 34px;
   gap: 6px;
+  align-items: center;
   padding: 7px;
   border: 1px solid var(--panel-inner-line);
   border-radius: 4px;
   background: rgba(7, 20, 42, 0.42);
 }
 
+.result-info {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  gap: 5px;
+  align-items: center;
+}
+
 .result-meta {
-  display: grid;
-  gap: 2px;
+  display: flex;
+  flex: 1;
+  gap: 6px;
+  align-items: center;
   min-width: 0;
 }
 
 .result-meta span {
   color: var(--text-primary);
-  font-size: 11px;
+  font-size: 9px;
   font-weight: 650;
 }
 
 .result-meta small {
+  flex: 1;
   overflow: hidden;
   color: var(--text-muted);
   font-family: ui-monospace, Consolas, monospace;
-  font-size: 10px;
+  font-size: 8px;
   line-height: 1.25;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .drawing-results input {
+  flex: 0 0 42%;
   width: 100%;
   min-width: 0;
   padding: 5px 6px;
