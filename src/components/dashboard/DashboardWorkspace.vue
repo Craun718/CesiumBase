@@ -353,6 +353,7 @@ function openDrawingPanel() {
   terrainEnabled.value = false
   mapController.setTerrainExaggeration(false, terrainScale.value)
   basemapOpen.value = false
+  mapController.setDrawingFeaturesVisible(true)
   drawingOpen.value = true
 }
 
