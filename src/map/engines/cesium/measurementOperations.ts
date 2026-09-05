@@ -177,7 +177,6 @@ export class CesiumMeasurementController {
 
     this.previewPoint = point
     this.updateResult()
-    this.render()
     this.emitState()
   }
 
@@ -240,65 +239,71 @@ export class CesiumMeasurementController {
     try {
       this.removeCurrentEntities()
 
-      const displayPoints = [...this.points]
-      if (this.previewPoint && (this.mode === "length" || this.mode === "area")) {
-        displayPoints.push(this.previewPoint)
-      }
-
       for (const [index, point] of this.points.entries()) {
         this.entities.push(this.createPointEntity(point, false, index + 1))
       }
 
-      if (this.previewPoint && (this.mode === "length" || this.mode === "area")) {
-        this.entities.push(this.createPointEntity(this.previewPoint, true, displayPoints.length))
+      if (this.mode === "length" || this.mode === "area") {
+        this.entities.push(this.createPreviewPointEntity())
       }
 
-      if (this.mode && displayPoints.length > 0) {
-        const positions = displayPoints.map((point) => createCesiumPosition(point))
+      if (this.mode === "length") {
+        this.entities.push(
+          this.viewer.entities.add({
+            polyline: {
+              positions: new Cesium.CallbackProperty(() => this.getDisplayCartesians(), false),
+              show: new Cesium.CallbackProperty(() => this.getDisplayPoints().length > 1, false),
+              width: 3,
+              material: LINE_COLOR,
+              clampToGround: true,
+            },
+          }),
+        )
+      }
 
-        if (this.mode === "length" && positions.length > 1) {
-          this.entities.push(
-            this.viewer.entities.add({
-              polyline: {
-                positions,
-                width: 3,
-                material: LINE_COLOR,
-                clampToGround: true,
-              },
-            }),
-          )
-        }
+      if (this.mode === "area") {
+        this.entities.push(
+          this.viewer.entities.add({
+            polygon: {
+              hierarchy: new Cesium.CallbackProperty(
+                () => new Cesium.PolygonHierarchy(this.getDisplayCartesians()),
+                false,
+              ),
+              show: new Cesium.CallbackProperty(() => this.getDisplayPoints().length > 2, false),
+              material: LINE_COLOR.withAlpha(0.2),
+              perPositionHeight: true,
+            },
+          }),
+        )
+      }
 
-        if (this.mode === "area" && positions.length > 2) {
-          this.entities.push(
-            this.viewer.entities.add({
-              polygon: {
-                hierarchy: new Cesium.PolygonHierarchy(positions),
-                material: LINE_COLOR.withAlpha(0.2),
-                perPositionHeight: true,
-              },
-            }),
-          )
-        }
-
-        const labelPosition = this.getResultLabelPosition(displayPoints)
-        if (labelPosition && this.resultValue !== undefined) {
-          this.entities.push(
-            this.viewer.entities.add({
-              position: createCesiumPosition(labelPosition),
-              label: {
-                text: this.formatResult(),
-                font: "600 13px ui-monospace, monospace",
-                fillColor: Cesium.Color.fromCssColorString("#e8f7ff"),
-                showBackground: true,
-                backgroundColor: LABEL_BACKGROUND,
-                verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
-                pixelOffset: new Cesium.Cartesian2(0, -12),
-                disableDepthTestDistance: Number.POSITIVE_INFINITY,
-              },
-            }),
-          )
-        }
+      if (this.mode) {
+        this.entities.push(
+          this.viewer.entities.add({
+            position: new Cesium.CallbackPositionProperty(() => {
+              const labelPosition = this.getResultLabelPosition(this.getDisplayPoints())
+              return labelPosition ? createCesiumPosition(labelPosition) : Cesium.Cartesian3.ZERO
+            }, false),
+            label: {
+              text: new Cesium.CallbackProperty(() => this.formatResult(), false),
+              show: new Cesium.CallbackProperty(() => {
+                const displayPoints = this.getDisplayPoints()
+                return (
+                  displayPoints.length > 0 &&
+                  this.resultValue !== undefined &&
+                  this.getResultLabelPosition(displayPoints) !== undefined
+                )
+              }, false),
+              font: "600 13px ui-monospace, monospace",
+              fillColor: Cesium.Color.fromCssColorString("#e8f7ff"),
+              showBackground: true,
+              backgroundColor: LABEL_BACKGROUND,
+              verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+              pixelOffset: new Cesium.Cartesian2(0, -12),
+              disableDepthTestDistance: Number.POSITIVE_INFINITY,
+            },
+          }),
+        )
       }
     } finally {
       this.viewer.entities.resumeEvents()
@@ -363,6 +368,49 @@ export class CesiumMeasurementController {
     })
   }
 
+  /** 创建跟随鼠标但不重建实体的预览点。 */
+  private createPreviewPointEntity(): Cesium.Entity {
+    return this.viewer.entities.add({
+      position: new Cesium.CallbackPositionProperty(() => {
+        return this.previewPoint ? createCesiumPosition(this.previewPoint) : Cesium.Cartesian3.ZERO
+      }, false),
+      point: {
+        pixelSize: 7,
+        color: PREVIEW_COLOR,
+        outlineColor: Cesium.Color.fromCssColorString("#071428"),
+        outlineWidth: 2,
+        disableDepthTestDistance: Number.POSITIVE_INFINITY,
+        show: new Cesium.CallbackProperty(() => this.previewPoint !== undefined, false),
+      },
+      label: {
+        text: String(this.points.length + 1),
+        font: "600 11px ui-monospace, monospace",
+        fillColor: PREVIEW_COLOR,
+        showBackground: true,
+        backgroundColor: LABEL_BACKGROUND,
+        pixelOffset: new Cesium.Cartesian2(0, -8),
+        verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+        disableDepthTestDistance: Number.POSITIVE_INFINITY,
+        show: new Cesium.CallbackProperty(() => this.previewPoint !== undefined, false),
+      },
+    })
+  }
+
+  /** 获取包含鼠标预览点的当前展示点集。 */
+  private getDisplayPoints(): MeasurementPoint[] {
+    const displayPoints = [...this.points]
+    if (this.previewPoint && (this.mode === "length" || this.mode === "area")) {
+      displayPoints.push(this.previewPoint)
+    }
+
+    return displayPoints
+  }
+
+  /** 获取当前展示点集对应的 Cesium 坐标。 */
+  private getDisplayCartesians() {
+    return this.getDisplayPoints().map((point) => createCesiumPosition(point))
+  }
+
   /** 获取结果标签的锚点。 */
   private getResultLabelPosition(points: MeasurementPoint[]): MeasurementPoint | undefined {
     if (points.length === 0) return undefined
@@ -397,8 +445,72 @@ export class CesiumMeasurementController {
 
   /** 保留已完成测量图形，并为下一次左键测量重建当前点集。 */
   private archiveCompletedEntities() {
-    this.completedEntities.push(...this.entities)
-    this.entities = []
+    if (!this.viewer.isDestroyed()) {
+      this.viewer.entities.suspendEvents()
+      try {
+        this.removeCurrentEntities()
+        this.completedEntities.push(...this.createCompletedEntities(this.points))
+      } finally {
+        this.viewer.entities.resumeEvents()
+      }
+    } else {
+      this.entities = []
+    }
+  }
+
+  /** 创建已完成测量的静态图形，避免归档实体继续读取下一次测量的点集。 */
+  private createCompletedEntities(points: MeasurementPoint[]): Cesium.Entity[] {
+    const entities: Cesium.Entity[] = []
+    for (const [index, point] of points.entries()) {
+      entities.push(this.createPointEntity(point, false, index + 1))
+    }
+
+    const positions = points.map((point) => createCesiumPosition(point))
+    if (this.mode === "length" && positions.length > 1) {
+      entities.push(
+        this.viewer.entities.add({
+          polyline: {
+            positions,
+            width: 3,
+            material: LINE_COLOR,
+            clampToGround: true,
+          },
+        }),
+      )
+    }
+
+    if (this.mode === "area" && positions.length > 2) {
+      entities.push(
+        this.viewer.entities.add({
+          polygon: {
+            hierarchy: new Cesium.PolygonHierarchy(positions),
+            material: LINE_COLOR.withAlpha(0.2),
+            perPositionHeight: true,
+          },
+        }),
+      )
+    }
+
+    const labelPosition = this.getResultLabelPosition(points)
+    if (labelPosition && this.resultValue !== undefined) {
+      entities.push(
+        this.viewer.entities.add({
+          position: createCesiumPosition(labelPosition),
+          label: {
+            text: this.formatResult(),
+            font: "600 13px ui-monospace, monospace",
+            fillColor: Cesium.Color.fromCssColorString("#e8f7ff"),
+            showBackground: true,
+            backgroundColor: LABEL_BACKGROUND,
+            verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+            pixelOffset: new Cesium.Cartesian2(0, -12),
+            disableDepthTestDistance: Number.POSITIVE_INFINITY,
+          },
+        }),
+      )
+    }
+
+    return entities
   }
 
   /** 广播当前测量状态。 */
