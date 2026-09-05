@@ -1,4 +1,4 @@
-import type { ImagerySource, SceneMode } from "../../map"
+import type { ImagerySource, MapDrawGeometryType, MapDrawState, SceneMode } from "../../map"
 
 export type MapOperationId =
   | "scene-mode"
@@ -8,6 +8,7 @@ export type MapOperationId =
   | "underground"
   | "basemap"
   | "compass"
+  | "drawing"
 
 export type MapOperation = {
   id: MapOperationId
@@ -24,6 +25,7 @@ export const mapOperations = [
   { id: "underground", label: "地下模式", icon: "bi-layers-half", kind: "toggle" },
   { id: "basemap", label: "底图切换", icon: "bi-grid-1x2", kind: "command" },
   { id: "compass", label: "显示指北针", icon: "bi-signpost-2", kind: "toggle" },
+  { id: "drawing", label: "绘制操作", icon: "bi-pencil", kind: "command" },
 ] satisfies MapOperation[]
 
 export type ViewOperationId =
@@ -69,6 +71,7 @@ export type MapControls = {
   terrainScale: number
   basemapOpen: boolean
   basemapSources: ImagerySource[]
+  drawingState: MapDrawState
   activeBasemapId: string | undefined
   activeBasemapLabel: string
   customBaseMapUrlInput: string
@@ -81,6 +84,13 @@ export type MapControls = {
   handleTerrainScaleInput: (event: Event) => void
   closeTerrainPanel: () => void
   closeBasemapPanel: () => void
+  startDrawing: (type: MapDrawGeometryType) => void
+  finishDrawing: () => void
+  cancelDrawing: () => void
+  clearDrawings: () => void
+  renameDrawing: (event: Event, id: string) => void
+  removeDrawing: (id: string) => void
+  closeDrawingPanel: () => void
   selectBasemap: (id: string) => void
   applyCustomBasemap: () => void
 }

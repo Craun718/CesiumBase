@@ -10,8 +10,10 @@ import type {
   ImagerySource,
   MapClickListener,
   MapCoordinate,
+  MapDrawGeometryType,
   MapEngine,
   MapBounds,
+  MapDrawState,
   SceneMode,
   TerrainSource,
 } from "../../types"
@@ -64,10 +66,12 @@ import {
 } from "./baseImagery"
 import { listCesiumImagerySources } from "./imagerySources"
 import { applyCesiumTerrainProvider, createCesiumTerrainProvider } from "./terrainSources"
+import { CesiumDrawingController } from "./drawingOperations"
 
 export class CesiumMapEngine implements MapEngine {
   private viewer?: Cesium.Viewer
   private pointerHandler?: Cesium.ScreenSpaceEventHandler
+  private readonly drawingController = new CesiumDrawingController()
   private disposePointerReadout?: () => void
   private coordinateReadout?: CoordinateReadout
   private lastPointerPosition?: { x: number; y: number }
@@ -93,6 +97,8 @@ export class CesiumMapEngine implements MapEngine {
 
     this.pointerHandler = new Cesium.ScreenSpaceEventHandler(viewer.canvas)
     this.pointerHandler.setInputAction(({ position }: { position: Cesium.Cartesian2 }) => {
+      if (this.drawingController.getDrawingState().mode !== null) return
+
       const coordinate = pickFlightCoordinate(viewer, position)
       if (!coordinate) return
 
@@ -100,6 +106,7 @@ export class CesiumMapEngine implements MapEngine {
         listener(coordinate)
       }
     }, Cesium.ScreenSpaceEventType.LEFT_CLICK)
+    this.drawingController.mount(viewer)
     this.pointerHandler.setInputAction(({ endPosition }: { endPosition: Cesium.Cartesian2 }) => {
       this.lastPointerPosition = { x: endPosition.x, y: endPosition.y }
       this.setCoordinateReadout(getPointerReadout(viewer, endPosition))
@@ -139,6 +146,7 @@ export class CesiumMapEngine implements MapEngine {
     this.disposePointerReadout = undefined
     this.pointerHandler?.destroy()
     this.pointerHandler = undefined
+    this.drawingController.unmount()
 
     if (this.viewer && !this.viewer.isDestroyed()) {
       this.viewer.destroy()
@@ -395,6 +403,51 @@ export class CesiumMapEngine implements MapEngine {
     const viewer = this.getActiveViewer()
 
     return viewer ? captureScreenshotThumbnail(viewer) : undefined
+  }
+
+  /** 开始指定类型的绘制。 */
+  startDrawing(type: MapDrawGeometryType) {
+    return this.drawingController.startDrawing(type)
+  }
+
+  /** 完成当前绘制草图。 */
+  finishDrawing() {
+    return this.drawingController.finishDrawing()
+  }
+
+  /** 取消当前绘制草图。 */
+  cancelDrawing() {
+    return this.drawingController.cancelDrawing()
+  }
+
+  /** 取消当前草图并退出绘制模式。 */
+  stopDrawing() {
+    return this.drawingController.stopDrawing()
+  }
+
+  /** 重命名绘制成果。 */
+  renameDrawing(id: string, name: string) {
+    return this.drawingController.renameDrawing(id, name)
+  }
+
+  /** 删除指定绘制成果。 */
+  removeDrawing(id: string) {
+    return this.drawingController.removeDrawing(id)
+  }
+
+  /** 清空全部绘制内容。 */
+  clearDrawings() {
+    this.drawingController.clearDrawings()
+  }
+
+  /** 读取当前绘制状态。 */
+  getDrawingState(): MapDrawState {
+    return this.drawingController.getDrawingState()
+  }
+
+  /** 监听绘制状态变化。 */
+  onDrawingStateChange(listener: (state: MapDrawState) => void) {
+    return this.drawingController.onDrawingStateChange(listener)
   }
 
   listBaseImagerySources(): ImagerySource[] {

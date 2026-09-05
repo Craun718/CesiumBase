@@ -6,12 +6,15 @@ import {
   useMapController,
   type CoordinateReadout,
   type ImagerySource,
+  type MapDrawGeometryType,
+  type MapDrawState,
   type SceneMode,
 } from "../../map"
 import AppStatusBar from "./AppStatusBar.vue"
 import AlertsPanel from "./AlertsPanel.vue"
 import BasemapPanel from "./BasemapPanel.vue"
 import DistributionPanel from "./DistributionPanel.vue"
+import DrawingPanel from "./DrawingPanel.vue"
 import OverviewPanel from "./OverviewPanel.vue"
 import MapStage from "./MapStage.vue"
 import OperationsMenu from "./OperationsMenu.vue"
@@ -57,6 +60,12 @@ const flightRouteSettingsOpen = ref(false)
 const terrainScale = ref(1)
 const basemapOpen = ref(false)
 const basemapSources = ref<ImagerySource[]>([])
+const drawingOpen = ref(false)
+const drawingState = ref<MapDrawState>({
+  mode: null,
+  activeCoordinates: [],
+  features: [],
+})
 const activeBasemapId = ref<string | undefined>("tianditu-img")
 const customBaseMapUrlInput = ref(localStore.customBaseMapUrl)
 
@@ -79,6 +88,7 @@ function isMapOperationActive(operationId: MapOperationId) {
   if (operationId === "north-lock") return northLocked.value
   if (operationId === "underground") return undergroundEnabled.value
   if (operationId === "compass") return compassVisible.value
+  if (operationId === "drawing") return drawingOpen.value
 
   return false
 }
@@ -118,6 +128,7 @@ function activateMapOperation(operationId: MapOperationId) {
 
   if (operationId === "terrain") {
     // 与底图切换互斥：打开地形面板前先关闭底图面板。
+    closeDrawingPanel()
     basemapOpen.value = false
 
     if (terrainEnabled.value) return
@@ -135,6 +146,7 @@ function activateMapOperation(operationId: MapOperationId) {
 
   if (operationId === "basemap") {
     // 与地形突出互斥：打开底图面板前先关闭地形面板并回退引擎夸张设置。
+    closeDrawingPanel()
     if (terrainEnabled.value) {
       terrainEnabled.value = false
       mapController.setTerrainExaggeration(false, terrainScale.value)
@@ -143,6 +155,20 @@ function activateMapOperation(operationId: MapOperationId) {
     if (basemapOpen.value) return
 
     openBasemapPanel()
+    return
+  }
+
+  if (operationId === "drawing") {
+    // 地图左侧三级功能面板同一时间只保留一个。
+    if (drawingOpen.value) {
+      closeDrawingPanel()
+      return
+    }
+
+    terrainEnabled.value = false
+    mapController.setTerrainExaggeration(false, terrainScale.value)
+    basemapOpen.value = false
+    drawingOpen.value = true
     return
   }
 
@@ -258,6 +284,51 @@ function closeBasemapPanel() {
   basemapOpen.value = false
 }
 
+/** 开始一种绘制类型；引擎未挂载时保持面板状态不变。 */
+function startDrawing(type: MapDrawGeometryType) {
+  mapController.startDrawing(type)
+}
+
+/** 完成当前草图。 */
+function finishDrawing() {
+  mapController.finishDrawing()
+}
+
+/** 取消当前草图。 */
+function cancelDrawing() {
+  mapController.cancelDrawing()
+}
+
+/** 清空绘制草图与成果。 */
+function clearDrawings() {
+  mapController.clearDrawings()
+}
+
+/** 提交成果名称；空名称回退为当前名称。 */
+function renameDrawing(event: Event, id: string) {
+  const input = event.target
+  if (!(input instanceof HTMLInputElement)) return
+
+  const feature = drawingState.value.features.find((item) => item.id === id)
+  if (!feature) return
+
+  const name = input.value.trim()
+  if (!name || !mapController.renameDrawing(id, name)) {
+    input.value = feature.name
+  }
+}
+
+/** 删除单个绘制成果。 */
+function removeDrawing(id: string) {
+  mapController.removeDrawing(id)
+}
+
+/** 关闭绘制面板时退出绘制模式，不删除已完成成果。 */
+function closeDrawingPanel() {
+  mapController.stopDrawing()
+  drawingOpen.value = false
+}
+
 /** 切换图源后保留面板，便于连续对比；关闭走面板右上角 X。 */
 function selectBasemap(id: string) {
   if (mapController.setBaseImagerySource(id)) {
@@ -306,6 +377,7 @@ function restoreEnvTerrainService() {
 }
 
 let disposeMountState: (() => void) | undefined
+let disposeDrawingState: (() => void) | undefined
 
 disposeMountState = mapController.onMountStateChange((ready) => {
   if (ready) {
@@ -314,9 +386,15 @@ disposeMountState = mapController.onMountStateChange((ready) => {
   }
 })
 
+disposeDrawingState = mapController.onDrawingStateChange((state) => {
+  drawingState.value = state
+})
+
 onBeforeUnmount(() => {
   disposeMountState?.()
   disposeMountState = undefined
+  disposeDrawingState?.()
+  disposeDrawingState = undefined
 })
 
 const controls = reactive({
@@ -336,6 +414,8 @@ const controls = reactive({
   terrainScale,
   basemapOpen,
   basemapSources,
+  drawingOpen,
+  drawingState,
   activeBasemapId,
   activeBasemapLabel,
   customBaseMapUrlInput,
@@ -348,6 +428,13 @@ const controls = reactive({
   handleTerrainScaleInput,
   closeTerrainPanel,
   closeBasemapPanel,
+  startDrawing,
+  finishDrawing,
+  cancelDrawing,
+  clearDrawings,
+  renameDrawing,
+  removeDrawing,
+  closeDrawingPanel,
   selectBasemap,
   applyCustomBasemap,
 }) satisfies MapControls
@@ -375,7 +462,8 @@ const mapMenuItems = computed<Array<OperationMenuItem<MapOperationId>>>(() =>
     active: operation.kind === "toggle" && isMapOperationActive(operation.id),
     open:
       (operation.id === "terrain" && controls.terrainEnabled) ||
-      (operation.id === "basemap" && controls.basemapOpen),
+      (operation.id === "basemap" && controls.basemapOpen) ||
+      (operation.id === "drawing" && controls.drawingOpen),
     disabled: isMapOperationDisabled(operation.id),
     disabledReason: isMapOperationDisabled(operation.id) ? "仅3D模式可用" : undefined,
     badge: operation.kind === "mode" ? controls.sceneMode.toUpperCase() : undefined,
@@ -384,6 +472,10 @@ const mapMenuItems = computed<Array<OperationMenuItem<MapOperationId>>>(() =>
 
 function getLeftExternalPanel(actionId: LeftActionId) {
   if (actionId !== "map") return
+
+  if (controls.drawingOpen) {
+    return { controlId: "drawing-window", close: closeDrawingPanel }
+  }
 
   if (controls.terrainEnabled) {
     return { controlId: "terrain-scale-window", close: closeTerrainPanel }
@@ -501,6 +593,12 @@ onBeforeUnmount(() => {
         </template>
 
         <template #panels="{ activePanelId, panelPlacement, closePanel }">
+          <DrawingPanel
+            v-if="controls.drawingOpen"
+            :controls="controls"
+            :placement="getLeftPanelPlacement(panelPlacement)"
+          />
+
           <BasemapPanel
             v-if="controls.basemapOpen"
             :controls="controls"

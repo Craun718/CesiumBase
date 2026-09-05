@@ -13,6 +13,8 @@ import type {
   MapCoordinate,
   MapEngine,
   MapEngineLoader,
+  MapDrawGeometryType,
+  MapDrawState,
   SceneMode,
   TerrainSource,
 } from "./types"
@@ -33,6 +35,12 @@ const defaultFlightPlaybackState: FlightPlaybackState = {
   totalDistance: 0,
 }
 
+const emptyDrawingState: MapDrawState = {
+  mode: null,
+  activeCoordinates: [],
+  features: [],
+}
+
 export class MapController {
   private engine?: MapEngine
 
@@ -42,11 +50,13 @@ export class MapController {
   private disposeEngineCoordinateReadout?: () => void
   private disposeEngineMapClick?: () => void
   private disposeEngineFlightState?: () => void
+  private disposeEngineDrawingState?: () => void
 
   private readonly mountStateListeners = new Set<(ready: boolean) => void>()
   private readonly coordinateReadoutListeners = new Set<(readout: CoordinateReadout) => void>()
   private readonly mapClickListeners = new Set<MapClickListener>()
   private readonly flightPlaybackStateListeners = new Set<(state: FlightPlaybackState) => void>()
+  private readonly drawingStateListeners = new Set<(state: MapDrawState) => void>()
 
   constructor(createEngine = loadMapEngine) {
     this.createEngine = createEngine
@@ -78,6 +88,9 @@ export class MapController {
         listener(state)
       }
     })
+    this.disposeEngineDrawingState = engine.onDrawingStateChange((state) => {
+      this.notifyDrawingState(state)
+    })
     this.notifyMountState(true)
   }
 
@@ -89,10 +102,13 @@ export class MapController {
     this.disposeEngineMapClick = undefined
     this.disposeEngineFlightState?.()
     this.disposeEngineFlightState = undefined
+    this.disposeEngineDrawingState?.()
+    this.disposeEngineDrawingState = undefined
     this.engine?.unmount()
     this.engine = undefined
     this.notifyMountState(false)
     this.notifyFlightPlaybackState(defaultFlightPlaybackState)
+    this.notifyDrawingState(emptyDrawingState)
   }
 
   /** 监听引擎挂载/卸载状态；注册时若已挂载会立即以 true 回调一次。 */
@@ -281,6 +297,59 @@ export class MapController {
     return this.engine?.captureScreenshotThumbnail()
   }
 
+  /** 开始指定类型的绘制；引擎未挂载时返回 false。 */
+  startDrawing(type: MapDrawGeometryType) {
+    return this.engine?.startDrawing(type) ?? false
+  }
+
+  /** 完成当前绘制草图。 */
+  finishDrawing() {
+    return this.engine?.finishDrawing() ?? false
+  }
+
+  /** 取消当前绘制草图。 */
+  cancelDrawing() {
+    return this.engine?.cancelDrawing() ?? false
+  }
+
+  /** 取消当前草图并退出绘制模式。 */
+  stopDrawing() {
+    return this.engine?.stopDrawing() ?? false
+  }
+
+  /** 重命名绘制成果。 */
+  renameDrawing(id: string, name: string) {
+    return this.engine?.renameDrawing(id, name) ?? false
+  }
+
+  /** 删除指定绘制成果。 */
+  removeDrawing(id: string) {
+    return this.engine?.removeDrawing(id) ?? false
+  }
+
+  /** 清空绘制成果并取消当前草图。 */
+  clearDrawings() {
+    this.engine?.clearDrawings()
+  }
+
+  /** 读取当前绘制状态。 */
+  getDrawingState(): MapDrawState {
+    return this.engine?.getDrawingState() ?? emptyDrawingState
+  }
+
+  /** 监听绘制状态变化；注册时若已有状态会立即回调一次。 */
+  onDrawingStateChange(listener: (state: MapDrawState) => void) {
+    this.drawingStateListeners.add(listener)
+
+    if (this.engine) {
+      listener(this.engine.getDrawingState())
+    }
+
+    return () => {
+      this.drawingStateListeners.delete(listener)
+    }
+  }
+
   /** 当前引擎支持的图源列表（用于 UI 渲染）。 */
   listBaseImagerySources(): ImagerySource[] {
     return this.engine?.listBaseImagerySources() ?? []
@@ -303,6 +372,13 @@ export class MapController {
 
   async setTerrainSource(source?: TerrainSource) {
     return (await this.engine?.setTerrainSource(source)) ?? false
+  }
+
+  /** 通知绘制状态监听器。 */
+  private notifyDrawingState(state: MapDrawState) {
+    for (const listener of this.drawingStateListeners) {
+      listener(state)
+    }
   }
 
   /** 通知地图挂载状态监听器。 */
