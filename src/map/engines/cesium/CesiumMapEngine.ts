@@ -8,6 +8,8 @@ import type {
   MapCoordinate,
   MapEngine,
   MapBounds,
+  MeasurementMode,
+  MeasurementState,
   SceneMode,
   TerrainSource,
 } from "../../types"
@@ -46,6 +48,7 @@ import {
 } from "./baseImagery"
 import { listCesiumImagerySources } from "./imagerySources"
 import { applyCesiumTerrainProvider, createCesiumTerrainProvider } from "./terrainSources"
+import { CesiumMeasurementController } from "./measurementOperations"
 
 export class CesiumMapEngine implements MapEngine {
   private viewer?: Cesium.Viewer
@@ -55,7 +58,9 @@ export class CesiumMapEngine implements MapEngine {
   private lastPointerPosition?: { x: number; y: number }
   private coordinateReadoutRefreshedAt = 0
   private terrainSourceGeneration = 0
+  private measurementController?: CesiumMeasurementController
   private readonly coordinateReadoutListeners = new Set<(readout: CoordinateReadout) => void>()
+  private readonly measurementStateListeners = new Set<(state: MeasurementState) => void>()
 
   async mount(container: HTMLElement) {
     if (this.viewer) return
@@ -72,6 +77,11 @@ export class CesiumMapEngine implements MapEngine {
     setInitialCamera(viewer)
     void addProvinceBoundaries(viewer)
 
+    this.measurementController = new CesiumMeasurementController(viewer, (state) => {
+      for (const listener of this.measurementStateListeners) {
+        listener(state)
+      }
+    })
     this.pointerHandler = new Cesium.ScreenSpaceEventHandler(viewer.canvas)
     this.pointerHandler.setInputAction(({ endPosition }: { endPosition: Cesium.Cartesian2 }) => {
       this.lastPointerPosition = { x: endPosition.x, y: endPosition.y }
@@ -105,6 +115,8 @@ export class CesiumMapEngine implements MapEngine {
 
   unmount() {
     this.terrainSourceGeneration += 1
+    this.measurementController?.dispose()
+    this.measurementController = undefined
     this.disposePointerReadout?.()
     this.disposePointerReadout = undefined
     this.pointerHandler?.destroy()
@@ -118,6 +130,7 @@ export class CesiumMapEngine implements MapEngine {
     this.lastPointerPosition = undefined
     this.coordinateReadout = undefined
     this.coordinateReadoutListeners.clear()
+    this.measurementStateListeners.clear()
   }
 
   flyToBounds(bounds: MapBounds) {
@@ -322,6 +335,30 @@ export class CesiumMapEngine implements MapEngine {
     return true
   }
 
+  setMeasurementMode(mode: MeasurementMode | null) {
+    this.measurementController?.setMode(mode)
+  }
+
+  undoMeasurementPoint() {
+    this.measurementController?.undoPoint()
+  }
+
+  clearMeasurement() {
+    this.measurementController?.clear()
+  }
+
+  getMeasurementState(): MeasurementState {
+    return this.measurementController?.getState() ?? createIdleMeasurementState()
+  }
+
+  onMeasurementStateChange(listener: (state: MeasurementState) => void) {
+    this.measurementStateListeners.add(listener)
+
+    return () => {
+      this.measurementStateListeners.delete(listener)
+    }
+  }
+
   private getActiveViewer() {
     if (this.viewer && !this.viewer.isDestroyed()) {
       return this.viewer
@@ -360,6 +397,17 @@ export class CesiumMapEngine implements MapEngine {
       this.lastPointerPosition.y,
     )
     this.setCoordinateReadout(getPointerReadout(viewer, pointerPosition))
+  }
+}
+
+/** 创建未开始测量的默认状态。 */
+function createIdleMeasurementState(): MeasurementState {
+  return {
+    mode: null,
+    points: [],
+    previewPoint: undefined,
+    resultValue: undefined,
+    error: undefined,
   }
 }
 

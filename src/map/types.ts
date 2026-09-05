@@ -73,6 +73,27 @@ export interface TerrainSource {
   readonly requestWaterMask?: boolean
 }
 
+export type MeasurementMode = "length" | "area" | "point-height" | "point-terrain-height"
+
+export type MeasurementPointSource = "scene" | "terrain"
+
+/** 测量点坐标；height 为 WGS-84 椭球高，单位米。 */
+export interface MeasurementPoint {
+  readonly longitude: number
+  readonly latitude: number
+  readonly height: number
+  readonly source: MeasurementPointSource
+}
+
+/** 引擎测量状态；points 为已确认点，previewPoint 为鼠标悬停预览点。 */
+export interface MeasurementState {
+  readonly mode: MeasurementMode | null
+  readonly points: readonly MeasurementPoint[]
+  readonly previewPoint: MeasurementPoint | undefined
+  readonly resultValue: number | undefined
+  readonly error: string | undefined
+}
+
 export interface MapEngine {
   mount(container: HTMLElement): void | Promise<void>
   unmount(): void
@@ -132,6 +153,16 @@ export interface MapEngine {
    * 返回是否实际应用，false 表示引擎未就绪、已被新请求取代或不支持。
    */
   setTerrainSource(source?: TerrainSource): Promise<boolean>
+  /** 切换测量模式；null 停止测量并清除图形。 */
+  setMeasurementMode(mode: MeasurementMode | null): void
+  /** 撤销当前测量的最后一个确认点。 */
+  undoMeasurementPoint(): void
+  /** 清空当前测量点并保留测量模式。 */
+  clearMeasurement(): void
+  /** 读取当前测量状态。 */
+  getMeasurementState(): MeasurementState
+  /** 监听测量状态变化，返回取消监听函数。 */
+  onMeasurementStateChange(listener: (state: MeasurementState) => void): () => void
 }
 
 export type MapEngineFactory = () => MapEngine

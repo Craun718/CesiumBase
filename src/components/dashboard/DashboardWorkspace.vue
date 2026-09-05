@@ -6,6 +6,7 @@ import {
   useMapController,
   type CoordinateReadout,
   type ImagerySource,
+  type MeasurementState,
   type SceneMode,
 } from "../../map"
 import AppStatusBar from "./AppStatusBar.vue"
@@ -14,6 +15,7 @@ import BasemapPanel from "./BasemapPanel.vue"
 import DistributionPanel from "./DistributionPanel.vue"
 import OverviewPanel from "./OverviewPanel.vue"
 import MapStage from "./MapStage.vue"
+import MeasurementPanel from "./MeasurementPanel.vue"
 import OperationsMenu from "./OperationsMenu.vue"
 import OperationsRail from "./OperationsRail.vue"
 import RailPanel from "./RailPanel.vue"
@@ -24,14 +26,16 @@ import ViewOperationsPanel from "../ViewOperationsPanel.vue"
 import type { OperationMenuItem, RailAction, RailCommand, RailPanelPlacement } from "./operations"
 import {
   mapOperations,
+  measurementOperations,
   viewOperations,
   type MapControls,
   type MapOperationId,
+  type MeasurementOperationId,
   type ViewOperationId,
 } from "./mapControls"
 
 type LeftActionId = "overview" | "distribution" | "map" | "data"
-type RightActionId = "view" | "alerts" | "resources"
+type RightActionId = "view" | "measure" | "alerts" | "resources"
 type RightCommandId = "return-guangxi"
 
 const CUSTOM_BASEMAP_ID = "custom"
@@ -49,6 +53,8 @@ const viewCenterVisible = ref(false)
 const viewPositionOpen = ref(false)
 const viewCameraOpen = ref(false)
 const viewFavoritesOpen = ref(false)
+const measurementOpen = ref(false)
+const measurementState = ref<MeasurementState>(mapController.getMeasurementState())
 const terrainScale = ref(1)
 const basemapOpen = ref(false)
 const basemapSources = ref<ImagerySource[]>([])
@@ -200,6 +206,28 @@ function closeViewPanel() {
   viewFavoritesOpen.value = false
 }
 
+/** 打开测量面板并切换到指定测量模式。 */
+function activateMeasurementOperation(operationId: MeasurementOperationId) {
+  measurementOpen.value = true
+  mapController.setMeasurementMode(operationId)
+}
+
+/** 关闭测量面板并停止地图测量交互。 */
+function closeMeasurementPanel() {
+  measurementOpen.value = false
+  mapController.setMeasurementMode(null)
+}
+
+/** 撤销当前测量的最后一个确认点。 */
+function undoMeasurementPoint() {
+  mapController.undoMeasurementPoint()
+}
+
+/** 清空当前测量点并保持测量模式。 */
+function clearMeasurement() {
+  mapController.clearMeasurement()
+}
+
 function handleTerrainScaleInput(event: Event) {
   const input = event.target
   if (!(input instanceof HTMLInputElement)) return
@@ -303,6 +331,8 @@ const controls = reactive({
   viewPositionOpen,
   viewCameraOpen,
   viewFavoritesOpen,
+  measurementOpen,
+  measurementState,
   terrainScale,
   basemapOpen,
   basemapSources,
@@ -314,6 +344,10 @@ const controls = reactive({
   activateMapOperation,
   activateViewOperation,
   closeViewPanel,
+  activateMeasurementOperation,
+  closeMeasurementPanel,
+  undoMeasurementPoint,
+  clearMeasurement,
   handleTerrainScaleInput,
   closeTerrainPanel,
   closeBasemapPanel,
@@ -330,6 +364,7 @@ const leftActions = [
 
 const rightActions = [
   { id: "view", label: "视角操作", icon: "bi-eye", customMenu: true },
+  { id: "measure", label: "测量操作", icon: "bi-rulers", customMenu: true },
   { id: "alerts", label: "实时告警", icon: "bi-bell" },
   { id: "resources", label: "资源负载", icon: "bi-cpu" },
 ] satisfies Array<RailAction<RightActionId>>
@@ -376,6 +411,14 @@ const viewMenuItems = computed<Array<OperationMenuItem<ViewOperationId>>>(() =>
   })),
 )
 
+const measurementMenuItems = computed<Array<OperationMenuItem<MeasurementOperationId>>>(() =>
+  measurementOperations.map((operation) => ({
+    ...operation,
+    active: controls.measurementState.mode === operation.id,
+    open: controls.measurementOpen && controls.measurementState.mode === operation.id,
+  })),
+)
+
 function activateRightCommand(commandId: RightCommandId) {
   if (commandId === "return-guangxi") {
     mapController.returnToGuangxi()
@@ -383,6 +426,10 @@ function activateRightCommand(commandId: RightCommandId) {
 }
 
 function getRightExternalPanel(actionId: RightActionId) {
+  if (actionId === "measure" && controls.measurementOpen) {
+    return { controlId: "right-measure-panel", close: closeMeasurementPanel }
+  }
+
   if (actionId !== "view") return undefined
 
   if (controls.viewPositionOpen) {
@@ -429,16 +476,22 @@ const coordinateReadoutTitle = computed(() =>
 )
 
 let disposeReadout: (() => void) | undefined
+let disposeMeasurementState: (() => void) | undefined
 
 onMounted(() => {
   disposeReadout = mapController.onCoordinateReadoutChange((value) => {
     readout.value = value
+  })
+  disposeMeasurementState = mapController.onMeasurementStateChange((value) => {
+    measurementState.value = value
   })
 })
 
 onBeforeUnmount(() => {
   disposeReadout?.()
   disposeReadout = undefined
+  disposeMeasurementState?.()
+  disposeMeasurementState = undefined
 })
 </script>
 
@@ -507,13 +560,25 @@ onBeforeUnmount(() => {
         :get-external-panel="getRightExternalPanel"
         @command="activateRightCommand"
       >
-        <template #menu="{ close }">
+        <template #menu="{ action, close }">
           <OperationsMenu
+            v-if="action.id === 'view'"
             side="right"
             action-id="view"
             title="视角操作"
             :operations="viewMenuItems"
             @activate="activateViewOperation"
+            @close="close"
+          />
+
+          <OperationsMenu
+            v-else-if="action.id === 'measure'"
+            side="right"
+            action-id="measure"
+            title="测量操作"
+            tag="MEASURE"
+            :operations="measurementMenuItems"
+            @activate="activateMeasurementOperation"
             @close="close"
           />
         </template>
@@ -554,6 +619,12 @@ onBeforeUnmount(() => {
           >
             <ViewFavoritesPanel />
           </RailPanel>
+
+          <MeasurementPanel
+            v-if="controls.measurementOpen"
+            :controls="controls"
+            :placement="getRightPanelPlacement(panelPlacement)"
+          />
 
           <AlertsPanel
             v-if="activePanelId === 'alerts'"
