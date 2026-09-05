@@ -24,6 +24,32 @@ export interface CameraFlightOptions {
   readonly onCancel?: () => void
 }
 
+/** 支持的二维绘制几何类型。 */
+export type MapDrawGeometryType = "point" | "polyline" | "polygon"
+
+/** 引擎无关的绘制坐标；height 为海拔高度，单位米。 */
+export interface MapDrawCoordinate {
+  readonly longitude: number
+  readonly latitude: number
+  readonly height: number
+}
+
+/** 已完成的绘制成果。 */
+export interface MapDrawFeature {
+  readonly id: string
+  readonly name: string
+  readonly type: MapDrawGeometryType
+  readonly coordinates: readonly MapDrawCoordinate[]
+  readonly createdAt: string
+}
+
+/** 绘制交互状态；activeCoordinates 只包含已确认节点，不包含鼠标预览点。 */
+export interface MapDrawState {
+  readonly mode: MapDrawGeometryType | null
+  readonly activeCoordinates: readonly MapDrawCoordinate[]
+  readonly features: readonly MapDrawFeature[]
+}
+
 /** 本地持久化的收藏视角；screenshot 为空字符串表示截图生成失败。 */
 export interface ViewFavorite {
   readonly id: string
@@ -109,6 +135,25 @@ export interface MapEngine {
   captureScreenshot(): string | undefined
   /** 返回收藏列表使用的压缩缩略图数据 URL；不支持或捕获失败时返回 undefined。 */
   captureScreenshotThumbnail(): string | undefined
+
+  /** 开始指定类型的绘制；切换类型会丢弃当前未完成草图。 */
+  startDrawing(type: MapDrawGeometryType): boolean
+  /** 完成当前草图；节点数不足时返回 false。 */
+  finishDrawing(): boolean
+  /** 取消当前草图并保留绘制模式。 */
+  cancelDrawing(): boolean
+  /** 取消当前草图并退出绘制模式。 */
+  stopDrawing(): boolean
+  /** 重命名绘制成果；名称为空或 id 无效时返回 false。 */
+  renameDrawing(id: string, name: string): boolean
+  /** 删除指定绘制成果。 */
+  removeDrawing(id: string): boolean
+  /** 取消草图并删除全部绘制成果。 */
+  clearDrawings(): void
+  /** 读取当前绘制状态；引擎未挂载时返回空状态。 */
+  getDrawingState(): MapDrawState
+  /** 监听绘制状态变化，返回取消监听函数。 */
+  onDrawingStateChange(listener: (state: MapDrawState) => void): () => void
 
   /**
    * 当前引擎支持的图源列表（用于 UI 渲染下拉/列表）。
