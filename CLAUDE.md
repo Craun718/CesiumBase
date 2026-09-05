@@ -61,7 +61,7 @@ pnpm format:check # oxfmt --check
 ## 编码与命名约定
 
 - 风格以 `.oxfmtrc.json` 为准：双引号、无分号、2 空格缩进。lint/format 由 `pnpm lint` / `pnpm format` 触发；pre-commit 经 lint-staged 对暂存文件跑 `oxlint --fix` + `oxfmt --write`。
-- 编写函数时必须使用 JSDoc 声明函数的作用。
+- 在 .ts 文件和 .vue 组件中编写函数时必须使用 JSDoc 声明函数的作用。
 - 组件文件名 PascalCase；composable 文件/导出以 `useXxx` 命名。
 - 代码注释与界面文案统一使用中文。
 - 样式与状态就近放在所属组件或模块内；避免不必要的全局副作用。
