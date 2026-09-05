@@ -27,6 +27,7 @@ export class CesiumDrawingController {
   private readonly stateListeners = new Set<(state: MapDrawState) => void>()
   private idSeed = 0
   private nameSeed = 0
+  private featuresVisible = false
 
   /** 将绘制控制器挂载到指定 viewer。 */
   mount(viewer: Cesium.Viewer) {
@@ -34,6 +35,7 @@ export class CesiumDrawingController {
 
     this.viewer = viewer
     this.dataSource = new Cesium.CustomDataSource("map-drawing")
+    this.dataSource.show = this.featuresVisible
     void viewer.dataSources.add(this.dataSource)
 
     this.eventHandler = new Cesium.ScreenSpaceEventHandler(viewer.canvas)
@@ -146,6 +148,15 @@ export class CesiumDrawingController {
     this.features.delete(id)
     this.notifyState()
     return true
+  }
+
+  /** 同步已完成成果的数据源显隐。 */
+  setFeaturesVisible(visible: boolean) {
+    this.featuresVisible = visible
+
+    if (this.dataSource) {
+      this.dataSource.show = visible
+    }
   }
 
   /** 删除全部成果并取消未完成草图。 */

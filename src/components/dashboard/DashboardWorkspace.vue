@@ -341,6 +341,7 @@ function removeDrawing(id: string) {
 /** 关闭绘制面板时退出绘制模式，不删除已完成成果。 */
 function closeDrawingPanel() {
   mapController.stopDrawing()
+  mapController.setDrawingFeaturesVisible(false)
   drawingOpen.value = false
 }
 

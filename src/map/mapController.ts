@@ -346,6 +346,11 @@ export class MapController {
     return this.engine?.removeDrawing(id) ?? false
   }
 
+  /** 设置已完成绘制成果的地图显隐。 */
+  setDrawingFeaturesVisible(visible: boolean) {
+    this.engine?.setDrawingFeaturesVisible(visible)
+  }
+
   /** 清空绘制成果并取消当前草图。 */
   clearDrawings() {
     this.engine?.clearDrawings()
