@@ -1,7 +1,7 @@
 <template>
   <header class="topbar">
     <div class="brand">
-      <img class="brand-logo" src="/logo.svg" alt="" aria-hidden="true" />
+      <img class="brand-logo" src="/cesium-logo.png" alt="" aria-hidden="true" />
       <h1>数字孪生三维可视化平台</h1>
     </div>
   </header>
@@ -56,8 +56,8 @@
   top: 50%;
   left: calc(var(--edge-gutter, 18px) * -1);
   display: block;
-  width: 80px;
-  height: 80px;
+  width: 118px;
+  height: 30px;
   object-fit: contain;
   transform: translateY(-50%);
   filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 45%, transparent));
@@ -86,8 +86,8 @@
   }
 
   .brand-logo {
-    width: 42px;
-    height: 42px;
+    width: 82px;
+    height: 21px;
   }
 }
 
