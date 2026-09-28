@@ -1,10 +1,5 @@
 import type { MapBounds } from "../../map/types.js"
-import type { ResourceBinding } from "../catalog/model/types.js"
-import type {
-  GeoJsonFeatureCollection,
-  LayerSchemeBundle,
-  WfsServiceSource,
-} from "../layers/types.js"
+import type { GeoJsonFeatureCollection } from "@/features/layers/types.js"
 
 type RegionFeature = GeoJsonFeatureCollection["features"][number]
 
@@ -22,7 +17,7 @@ export interface RegionTreeDisplayRow {
   readonly depth: number
 }
 
-/** 将 WFS 返回的政区 FeatureCollection 转换为 code/parent_code 层级树。 */
+/** 将政区 GeoJSON FeatureCollection 转换为 code/parent_code 层级树。 */
 export function buildRegionTree(collection: GeoJsonFeatureCollection): RegionTreeNode[] {
   const nodes = new Map<string, RegionTreeNode>()
 
@@ -92,33 +87,6 @@ export function flattenRegionTreeForDisplay(
   keyword: string,
 ): RegionTreeDisplayRow[] {
   return flattenDisplayRows(regions, 0, expandedCodes, keyword.trim().length > 0)
-}
-
-/** 从当前图层方案中寻找第一个 WFS 矢量服务。 */
-export interface RegionWfsSourceBinding {
-  readonly source: WfsServiceSource
-  readonly binding: Extract<ResourceBinding, { protocol: "wfs" }>
-}
-
-/** \u4ece\u5f53\u524d\u56fe\u5c42\u65b9\u6848\u4e2d\u67e5\u627e\u7b2c\u4e00\u4e2a WFS \u670d\u52a1\u3002 */
-export function findRegionWfsSource(
-  bundle: LayerSchemeBundle | undefined,
-): RegionWfsSourceBinding | undefined {
-  if (!bundle) return undefined
-
-  for (const layer of bundle.scheme.layers) {
-    if (layer.type !== "vector") continue
-
-    const resource = bundle.resources.find((item) => item.id === layer.resourceId)
-    if (resource?.origin !== "service") continue
-
-    const source = bundle.sources.find((item) => item.id === resource.sourceId)
-    if (source?.protocol === "wfs" && resource.binding.protocol === "wfs") {
-      return { source, binding: resource.binding }
-    }
-  }
-
-  return undefined
 }
 
 /** 默认展开自治区与市级节点，县级保持收起。 */

@@ -7,14 +7,8 @@ import {
   filterRegionTree,
   flattenRegionTree,
   flattenRegionTreeForDisplay,
-  findRegionWfsSource,
 } from "../src/features/regions/regionTree.js"
 import type { GeoJsonFeatureCollection } from "../src/features/catalog/model/types.js"
-import type {
-  LayerSchemeBundle,
-  ServiceResourceDefinition,
-  ServiceSourceDefinition,
-} from "../src/features/layers/types.js"
 
 test("buildRegionTree 按 parent_code 建立三级政区树", () => {
   const collection = createRegionCollection()
@@ -93,59 +87,6 @@ test("flattenRegionTreeForDisplay 按展开状态显示并在搜索时强制展�
   )
 })
 
-test("findRegionWfsSource returns v1 source and binding", () => {
-  const source: ServiceSourceDefinition = {
-    id: "source-guangxi-region-wfs",
-    name: "Region WFS",
-    sortOrder: 70,
-    enabled: true,
-    protocol: "wfs",
-    connection: { baseUrl: "/geoserver/guangxi/wfs", version: "2.0.0" },
-    verification: { status: "verified", issues: [] },
-  }
-  const resource: ServiceResourceDefinition = {
-    id: "resource-region",
-    name: "Region",
-    sortOrder: 10,
-    enabled: true,
-    origin: "service",
-    sourceId: source.id,
-    bindingKey: "guangxi:region",
-    binding: { protocol: "wfs", typeName: "guangxi:region" },
-    kind: "vector",
-    extent: { west: 104, south: 21, east: 112, north: 26 },
-    verification: { status: "verified", issues: [] },
-  }
-  const bundle: LayerSchemeBundle = {
-    scheme: {
-      id: "scheme-default",
-      name: "Default",
-      sortOrder: 10,
-      status: "enabled",
-      defaultActive: true,
-      groups: [],
-      layers: [
-        {
-          id: "layer-region",
-          name: "Region",
-          resourceId: resource.id,
-          visible: true,
-          sortOrder: 10,
-          renderOrder: 10,
-          type: "vector",
-          style: {},
-        },
-      ],
-    },
-    sources: [source],
-    resources: [resource],
-  }
-
-  const result = findRegionWfsSource(bundle)
-
-  assert.equal(result?.source.id, "source-guangxi-region-wfs")
-  assert.equal(result?.binding.typeName, "guangxi:region")
-})
 function createRegionCollection(): GeoJsonFeatureCollection {
   return {
     type: "FeatureCollection",

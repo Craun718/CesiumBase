@@ -1,17 +1,15 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue"
+import { computed, onBeforeUnmount, onMounted, ref } from "vue"
 import RailPanel from "./RailPanel.vue"
-import { useCatalogStore } from "../../features/catalog/store"
-import { loadWfsFeatureCollection } from "../../features/layers/wfsFeatureCache"
 import {
   buildRegionTree,
   createDefaultExpandedRegionCodes,
   filterRegionTree,
-  findRegionWfsSource,
   flattenRegionTree,
   flattenRegionTreeForDisplay,
   type RegionTreeNode,
 } from "../../features/regions/regionTree"
+import { loadStaticRegionCollection } from "@/features/regions/staticRegionSource"
 import { createRegionLocator, type RegionLocatorStatus } from "../../features/regions/regionLocator"
 import { useMapController } from "../../map"
 
@@ -23,7 +21,6 @@ const emit = defineEmits<{
   close: []
 }>()
 
-const layerCatalog = useCatalogStore()
 const mapController = useMapController()
 const searchKeyword = ref("")
 const regions = ref<readonly RegionTreeNode[]>([])
@@ -39,7 +36,6 @@ const selectedCode = computed(() => locatorStatus.value.selectedCode)
 const locatingCode = computed(() => locatorStatus.value.locatingCode)
 const actionError = computed(() => locatorStatus.value.actionError)
 
-const regionSource = computed(() => findRegionWfsSource(layerCatalog.activeBundle))
 const visibleRows = computed(() =>
   flattenRegionTreeForDisplay(
     filterRegionTree(regions.value, searchKeyword.value),
@@ -55,10 +51,6 @@ const regionLocator = createRegionLocator(mapController, (status) => {
   locatorStatus.value = status
 })
 
-watch(regionSource, () => {
-  void loadRegions()
-})
-
 onMounted(() => {
   void loadRegions()
 })
@@ -68,21 +60,14 @@ onBeforeUnmount(() => {
   regionLocator.cancel()
 })
 
-/** 加载当前方案引用的 WFS 政区数据，并与图层渲染共享请求缓存。 */
+/** 加载 public/vector 下的静态政区数据。 */
 async function loadRegions() {
   const generation = ++loadGeneration
-  const source = regionSource.value
-  if (!source) {
-    regions.value = []
-    expandedCodes.value = new Set()
-    errorMessage.value = "当前图层方案没有可用的 WFS 政区服务"
-    return
-  }
 
   loading.value = true
   errorMessage.value = ""
   try {
-    const collection = await loadWfsFeatureCollection(source)
+    const collection = await loadStaticRegionCollection()
     if (generation !== loadGeneration) return
 
     const nextRegions = buildRegionTree(collection)
