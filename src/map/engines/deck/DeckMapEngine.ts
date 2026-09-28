@@ -68,8 +68,8 @@ export class DeckMapEngine extends MapEngineCompatibility implements MapEngine {
     this.headingListeners.clear()
   }
 
-  flyToBounds(bounds: MapBounds) {
-    if (!this.container) return
+  async flyToBounds(bounds: MapBounds) {
+    if (!this.container) return false
 
     const viewport = new WebMercatorViewport({
       width: this.container.clientWidth || 1,
@@ -88,6 +88,7 @@ export class DeckMapEngine extends MapEngineCompatibility implements MapEngine {
       latitude: target.latitude,
       zoom: target.zoom,
     })
+    return true
   }
 
   setSceneMode(mode: SceneMode) {

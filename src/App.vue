@@ -1,17 +1,22 @@
+<template>
+  <!-- ToastProvider 必须包住内容：它靠 provide 下发入口，而 provide 只沿组件树向下传递，
+       放成 RouterView 的兄弟节点时路由视图注不到 ToastApi。 -->
+  <ToastProvider>
+    <div class="screen-shell">
+      <AppTopBar />
+      <RouterView v-slot="{ Component }">
+        <KeepAlive include="DashboardWorkspace">
+          <component :is="Component" />
+        </KeepAlive>
+      </RouterView>
+    </div>
+  </ToastProvider>
+</template>
+
 <script setup lang="ts">
 import AppTopBar from "./components/dashboard/AppTopBar.vue"
-import DashboardWorkspace from "./components/dashboard/DashboardWorkspace.vue"
-import { provideMapController } from "./map"
-
-provideMapController()
+import ToastProvider from "./components/base/ToastProvider.vue"
 </script>
-
-<template>
-  <div class="screen-shell">
-    <AppTopBar />
-    <DashboardWorkspace />
-  </div>
-</template>
 
 <style scoped lang="scss">
 .screen-shell {

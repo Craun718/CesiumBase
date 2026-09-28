@@ -54,12 +54,12 @@ const resourceLoads = [
 .resource-row span,
 .resource-row strong {
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 
 .resource-row strong {
   color: var(--text-primary);
-  font-family: ui-monospace, Consolas, monospace;
+  font-family: var(--font-mono);
 }
 
 .resource-list > div > small {
@@ -70,8 +70,8 @@ const resourceLoads = [
   width: 100%;
   height: 5px;
   overflow: hidden;
-  border-radius: 2px;
-  background: rgba(31, 62, 104, 0.82);
+  border-radius: var(--radius-xs);
+  background: color-mix(in srgb, var(--neutral-mid) 82%, transparent);
 }
 
 .resource-track i {
@@ -79,7 +79,7 @@ const resourceLoads = [
   width: 0;
   height: 100%;
   border-radius: inherit;
-  background: var(--cyan);
+  background: var(--accent);
   transition: width 180ms ease;
 }
 </style>

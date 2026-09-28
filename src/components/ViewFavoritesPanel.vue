@@ -573,6 +573,8 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped lang="scss">
+@use "../styles/fields" as fields;
+
 .view-favorites {
   display: grid;
   gap: 12px;
@@ -595,40 +597,26 @@ onBeforeUnmount(() => {
   align-items: center;
 }
 
-input {
-  width: 100%;
-  min-width: 0;
-  padding: 7px 8px;
-  border: 1px solid var(--panel-inner-line);
-  border-radius: 4px;
-  color: var(--text-primary);
-  font-family: ui-monospace, Consolas, monospace;
-  font-size: 12px;
-  background: rgba(7, 20, 42, 0.58);
-  outline: none;
-}
-
-input:focus-visible {
-  border-color: rgba(72, 229, 255, 0.68);
-  outline: 2px solid rgba(72, 229, 255, 0.3);
-  outline-offset: 1px;
-}
+/* 面板字段统一走玻璃档（见 _fields.scss）：本面板浮在裸地图上，底色必须半透明。
+   数值输入自动走等宽分支，文本输入回到界面字体。原先这里的 `outline-offset: 1px`
+   是死代码 —— 基础块的 outline: none 让全局焦点环根本没画出来。 */
+@include fields.glass-controls;
 
 label {
   display: grid;
   gap: 5px;
   min-width: 0;
   color: var(--text-secondary);
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 
 .favorite-editor {
   display: grid;
   gap: 9px;
   padding: 10px;
-  border: 1px solid rgba(72, 229, 255, 0.24);
-  border-radius: 4px;
-  background: rgba(9, 25, 48, 0.5);
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, transparent);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--neutral-deep) 50%, transparent);
 }
 
 .field-grid {
@@ -641,8 +629,8 @@ label {
 .favorite-preview {
   overflow: hidden;
   border: 1px solid var(--panel-inner-line);
-  border-radius: 4px;
-  background: rgba(3, 9, 19, 0.7);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-abyss) 70%, transparent);
 }
 
 .screenshot-preview {
@@ -665,11 +653,11 @@ label {
   width: 100%;
   height: 100%;
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 
 .screenshot-placeholder .bi {
-  font-size: 18px;
+  font-size: var(--text-xl);
 }
 
 .primary-button,
@@ -679,40 +667,44 @@ label {
   align-items: center;
   justify-content: center;
   gap: 5px;
-  min-height: 30px;
-  padding: 0 9px;
-  border-radius: 4px;
-  font-size: 12px;
+  min-height: var(--control-md);
+  padding: 0 var(--space-5);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
   transition:
-    color 140ms ease,
-    border-color 140ms ease,
-    background-color 140ms ease;
+    color var(--motion-duration-base) var(--motion-ease-standard),
+    border-color var(--motion-duration-base) var(--motion-ease-standard),
+    background-color var(--motion-duration-base) var(--motion-ease-standard);
 }
 
 .primary-button {
-  border: 1px solid rgba(72, 229, 255, 0.5);
-  color: #04121e;
-  background: var(--cyan);
+  border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
+  color: var(--surface-3);
+  background: var(--accent);
 }
 
 .ghost-button {
-  border: 1px solid rgba(79, 151, 255, 0.32);
+  border: 1px solid color-mix(in srgb, var(--neutral) 32%, transparent);
   color: var(--text-secondary);
-  background: rgba(19, 40, 72, 0.44);
+  background: color-mix(in srgb, var(--neutral-soft) 80%, transparent);
 }
 
 .confirm-delete {
-  border: 1px solid rgba(255, 95, 120, 0.62);
-  color: var(--rose);
-  background: rgba(69, 15, 27, 0.62);
+  border: 1px solid color-mix(in srgb, var(--danger) 62%, transparent);
+  color: var(--danger);
+  background: color-mix(
+    in srgb,
+    color-mix(in srgb, var(--danger-bg) 100%, transparent) 62%,
+    transparent
+  );
 }
 
 .primary-button:hover:not(:disabled),
 .ghost-button:hover:not(:disabled),
 .confirm-delete:hover:not(:disabled) {
-  border-color: rgba(72, 229, 255, 0.78);
-  color: var(--cyan);
-  background: rgba(16, 47, 83, 0.9);
+  border-color: color-mix(in srgb, var(--accent) 78%, transparent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--neutral-deep) 90%, transparent);
 }
 
 .primary-button:disabled,
@@ -726,11 +718,6 @@ label {
 .primary-button:focus-visible,
 .ghost-button:focus-visible,
 .icon-button:focus-visible,
-.confirm-delete:focus-visible {
-  outline: 2px solid rgba(72, 229, 255, 0.46);
-  outline-offset: 2px;
-}
-
 .editor-actions {
   display: grid;
   grid-template-columns: auto auto minmax(0, 1fr);
@@ -740,9 +727,9 @@ label {
 .empty-state {
   padding: 18px 10px;
   border: 1px dashed var(--panel-inner-line);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--text-sm);
   text-align: center;
 }
 
@@ -760,8 +747,8 @@ label {
   gap: 9px;
   padding: 8px;
   border: 1px solid var(--panel-inner-line);
-  border-radius: 4px;
-  background: rgba(7, 20, 42, 0.48);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-panel) 48%, transparent);
 }
 
 .favorite-preview {
@@ -779,8 +766,8 @@ label {
 .favorite-meta strong {
   overflow: hidden;
   color: var(--text-primary);
-  font-size: 12px;
-  line-height: 1.3;
+  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -788,8 +775,8 @@ label {
 .favorite-meta small,
 .favorite-meta time {
   color: var(--text-muted);
-  font-size: 10px;
-  line-height: 1.3;
+  font-size: var(--text-2xs);
+  line-height: var(--leading-snug);
 }
 
 .favorite-meta small {
@@ -810,34 +797,34 @@ label {
 .confirm-delete {
   display: grid;
   place-items: center;
-  width: 28px;
-  height: 26px;
-  min-height: 26px;
+  width: var(--control-md);
+  height: var(--control-md);
+  min-height: var(--control-md);
   padding: 0;
-  border: 1px solid rgba(79, 151, 255, 0.28);
-  border-radius: 4px;
+  border: 1px solid color-mix(in srgb, var(--neutral) 28%, transparent);
+  border-radius: var(--radius-sm);
   color: var(--text-secondary);
-  background: rgba(19, 40, 72, 0.42);
+  background: color-mix(in srgb, var(--neutral-soft) 76%, transparent);
 }
 
 .confirm-delete {
   width: auto;
-  padding: 0 8px;
+  padding: 0 var(--space-4);
 }
 
 .icon-button.is-danger:hover:not(:disabled) {
-  border-color: rgba(255, 95, 120, 0.72);
-  color: var(--rose);
+  border-color: color-mix(in srgb, var(--danger) 72%, transparent);
+  color: var(--danger);
 }
 
 .operation-feedback {
   margin: 0;
   color: var(--text-secondary);
-  font-size: 12px;
-  line-height: 1.35;
+  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
 }
 
 .operation-feedback.is-error {
-  color: var(--rose);
+  color: var(--danger);
 }
 </style>

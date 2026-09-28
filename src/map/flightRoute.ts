@@ -1,10 +1,12 @@
-import { clampCameraHeight } from "./cameraLimits"
+import { clampCameraHeight } from "./cameraLimits.ts"
 import type { FlightRoute, FlightWaypoint } from "./types"
 
 export const MAX_FLIGHT_WAYPOINTS = 2000
 export const DEFAULT_FLIGHT_HEIGHT = 500
 export const DEFAULT_FLIGHT_CLEARANCE = 50
 export const DEFAULT_FLIGHT_SPEED = 60
+export const MIN_FLIGHT_SPEED = 1
+export const MAX_FLIGHT_SPEED = 500
 export const DEFAULT_FLIGHT_PITCH = -20
 
 type GeoJsonPosition = number[]
@@ -120,7 +122,7 @@ export function normalizeFlightRoute(route: FlightRoute): FlightRoute {
       Number.isFinite(route.defaultHeight) ? route.defaultHeight : DEFAULT_FLIGHT_HEIGHT,
     ),
     safetyClearance: clampNumber(route.safetyClearance, 10, 500, DEFAULT_FLIGHT_CLEARANCE),
-    speed: clampNumber(route.speed, 1, 500, DEFAULT_FLIGHT_SPEED),
+    speed: clampNumber(route.speed, MIN_FLIGHT_SPEED, MAX_FLIGHT_SPEED, DEFAULT_FLIGHT_SPEED),
     pitch: DEFAULT_FLIGHT_PITCH,
     loop: route.loop === true,
   }

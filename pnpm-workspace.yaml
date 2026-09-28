@@ -4,5 +4,7 @@ packages:
 
 allowBuilds:
   "@parcel/watcher": true
-onlyBuiltDependencies:
-  - "@parcel/watcher"
+  # reka-ui 传递依赖。它的 postinstall 只做一件事：把入口切到当前 Vue 大版本的实现。
+  # 发布的默认入口本来就是 Vue 3 版（isVue3 = true），装的是 Vue 3，跑不跑结果一样，
+  # 因此显式拒绝而不是放行一个没人看的构建脚本。
+  vue-demi: false

@@ -1,44 +1,294 @@
 @import "tailwindcss";
 
 @theme {
-  --color-abyss: #030913;
-  --color-panel: rgba(7, 20, 42, 0.78);
-  --color-panel-border: rgba(79, 151, 255, 0.28);
-  --color-panel-inner: rgba(79, 151, 255, 0.18);
-  --color-text-primary: #e9f5ff;
-  --color-text-secondary: #9db8dc;
-  --color-text-muted: #6f8bad;
-  --color-accent-cyan: #48e5ff;
-  --color-accent-blue: #57a4ff;
+  /* === 调色板：Slate 中性面 + 绿色强调 ===
+     两个取值不是照抄调色板，而是按「亮度对齐旧色」反解出来的：
+     强调绿 #4aee86 的相对亮度 0.643，与旧强调青 #48e5ff 的 0.646 几乎一致，
+     因此全仓 color-mix 派生出的辉光 / 填充 / 描边感知强度不变，只换色相；
+     中性 #94a3b8 的 0.360 同样对齐旧次强调蓝 #57a4ff 的 0.358。
+     若改用 Tailwind green-500 #22c55e（亮度 0.411），所有强调态会整体变暗，
+     且对比度只有 4.43，达不到 4.5。 */
+  --color-abyss: #0f172a;
+  --color-neutral: #94a3b8;
+  --color-panel: color-mix(in srgb, var(--surface-1) 78%, transparent);
+  --color-panel-border: color-mix(in srgb, var(--neutral) 28%, transparent);
+  --color-panel-inner: color-mix(in srgb, var(--neutral) 18%, transparent);
+  /* 三档文本经实算满足最差底图（纯白）下 4.5:1，相邻比也过 1.25 的阶梯下限；
+     具体比值由 `pnpm check:contrast` 输出，此处不复述以免与实测漂移 */
+  --color-text-primary: #f8fafc;
+  --color-text-secondary: #cbd5e1;
+  --color-text-muted: #a8b9d1;
+  --color-accent: #4aee86;
   --color-accent-amber: #ffb648;
-  --color-accent-rose: #ff5f78;
+  /* rose 作为错误文字色使用：上一版的 #ff7a90 在新的卡片面上达不到 4.5，故提亮 */
+  --color-accent-rose: #ff95a6;
 
   --font-interface: Inter, "HarmonyOS Sans SC", "Microsoft YaHei", system-ui, sans-serif;
-  --font-data: ui-monospace, Consolas, monospace;
+  /* Fira Code 提到首位：它是等宽专用字体，无需自托管，未安装的设备自然回退到下一档 */
+  --font-mono:
+    "Fira Code", "JetBrains Mono", "SF Mono", "Cascadia Code", "Source Code Pro", Consolas,
+    "Roboto Mono", ui-monospace, monospace;
+
+  /* === 圆角：紧凑 GIS 大屏风格（4dp 节奏） === */
+  --radius-xs: 3px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-pill: 999px;
+
+  /* === 间距（重新校准：补 2 / 6 / 10，扩展到 48） === */
+  --space-0: 0px;
+  --space-1: 2px;
+  --space-2: 4px;
+  --space-3: 6px;
+  --space-4: 8px;
+  --space-5: 10px;
+  --space-6: 12px;
+  --space-7: 16px;
+  --space-8: 24px;
+  --space-9: 32px;
+  --space-10: 48px;
+
+  /* === 字号梯度（保留既有 8 档） === */
+  --text-2xs: 10px;
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 13px;
+  --text-md: 14px;
+  --text-lg: 15px;
+  --text-xl: 18px;
+  --text-2xl: 21px;
+  /* 新增：极少数场景（大数字） */
+  --text-3xl: 24px;
+
+  /* === 图标尺寸（Bootstrap Icons 等字体图标通过 font-size 控制） === */
+  --icon-xs: 12px;
+  --icon-sm: 14px;
+  --icon-md: 16px;
+  --icon-lg: 20px;
+  --icon-xl: 24px;
+
+  /* === 动效时长 === */
+  --motion-duration-fast: 100ms;
+  --motion-duration-base: 180ms;
+  --motion-duration-medium: 240ms;
+  --motion-duration-slow: 320ms;
+
+  /* === 缓动函数 === */
+  --motion-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --motion-ease-emphasized: cubic-bezier(0.32, 0.72, 0.25, 1);
+
+  /* === 玻璃模糊 === */
+  --blur-panel: 16px;
+  --blur-toast: 10px;
+
+  /* === 焦点环 ===
+     双色环：强调色描边 + 深色衬托。单一颜色无法同时压住亮影像与暗底图——
+     实测最亮的纯白底图上，任何强调色都只有约 1.4~1.6:1，达不到 3:1 的焦点外观要求。
+     衬托以 box-shadow 画在描边内外两侧，使环在任意底图上都有可辨识的相邻对比。 */
+  --ring-color: var(--accent);
+  --ring-width: 2px;
+  --ring-contrast: #020617;
+  --ring-halo: calc(var(--ring-offset) + var(--ring-width) + 2px);
+  /* 衬托的落点：从元素边缘铺到描边之外，描边由 outline 画在它上面，
+     于是环的剖面是「衬托—描边—衬托」。衬托以元素边缘为起点，
+     所以任何 outline-offset（含紧凑档 1px 与指北针的 3px）都落在它内部。 */
+  --ring-shadow: 0 0 0 var(--ring-halo) var(--ring-contrast);
+  --ring-offset: 2px;
+  --ring-offset-tight: 1px;
+  /* 内嵌焦点环：用于紧贴 overflow:hidden 容器边缘的元素，外扩环会被裁切 */
+  --ring-inset: -2px;
 }
 
 :root {
   color-scheme: dark;
   font-family: var(--font-interface);
   font-size: 16px;
-  line-height: 1.45;
+  line-height: var(--leading-normal);
   letter-spacing: 0;
-  color: #dcecff;
-  background: #030913;
+  color: var(--text-primary);
+  background: var(--surface-0);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
-  --panel-bg: var(--color-panel);
+  /* === 表面阶梯（背景由"虚到实"语义递增） ===
+     只换 RGB，alpha 全部保持原值——脚本的表面合成模型与缺口判定都建立在这些 alpha 上。 */
+  --surface-0: #0f172a;
+  --surface-1: rgba(27, 35, 54, 0.86);
+  --surface-2: rgba(39, 47, 66, 0.92);
+  --surface-3: rgba(2, 6, 23, 0.94);
+  --surface-overlay: rgba(2, 6, 23, 0.72);
+
+  /* === 阴影阶梯（深度由浅到深） ===
+     阴影基色必须与页面底色分开：底色提亮后若仍兼作混合基色，三档阴影会一起变浅。 */
+  --shadow-base: #020617;
+  --shadow-2: 0 16px 42px color-mix(in srgb, var(--shadow-base) 52%, transparent);
+  --shadow-3: 0 24px 64px color-mix(in srgb, var(--shadow-base) 72%, transparent);
+
+  /* === 面板语义色（既有别名 + 新增） === */
+  --panel-bg: var(--surface-1);
   --panel-border: var(--color-panel-border);
   --panel-inner-line: var(--color-panel-inner);
-  --panel-shadow: 0 16px 42px rgba(1, 8, 20, 0.52);
+  --panel-bg-solid: var(--surface-1);
+  --panel-bg-raised: var(--surface-2);
+  --panel-input-bg: var(--surface-3);
+  /* 描边与内线一律走中性色：无色相方案里蓝色边框是语义错误 */
+  --panel-line-strong: color-mix(in srgb, var(--neutral) 45%, transparent);
+  --panel-shadow: var(--shadow-2);
+  --panel-shadow-elevated: var(--shadow-3);
+  --panel-border-soft: color-mix(in srgb, var(--neutral) 28%, transparent);
+
+  /* === 文本次级 === */
   --text-primary: var(--color-text-primary);
   --text-secondary: var(--color-text-secondary);
   --text-muted: var(--color-text-muted);
-  --cyan: var(--color-accent-cyan);
-  --blue: var(--color-accent-blue);
-  --amber: var(--color-accent-amber);
-  --rose: var(--color-accent-rose);
+  --text-disabled: color-mix(in srgb, var(--text-secondary) 45%, transparent);
+
+  /* === 强调色族（语义命名：强调 / 中性 / 告警 / 危险） === */
+  --accent: var(--color-accent);
+  --neutral: var(--color-neutral);
+  --warning: var(--color-accent-amber);
+  --danger: var(--color-accent-rose);
+
+  /* === 行选中色族 === */
+  --row-active-border: color-mix(in srgb, var(--accent) 55%, transparent);
+  --row-active-bg: color-mix(in srgb, var(--row-active-border) 36%, transparent);
+
+  /* === 错误色族（独立 token） === */
+  --danger-deep: rgba(247, 108, 137, 1);
+  --danger-soft: color-mix(in srgb, var(--danger-deep) 40%, transparent);
+  --danger-bg: color-mix(in srgb, var(--danger-deep) 12%, transparent);
+
+  /* === 中性 mid-stack（hover / track / 选中底） === */
+  --neutral-soft: rgba(39, 47, 66, 0.55);
+  --neutral-mid: rgba(51, 65, 85, 0.6);
+  --neutral-deep: rgba(30, 41, 59, 0.6);
+
+  /* === 圆角角色规则 === */
+  --radius-button: var(--radius-md);
+  --radius-input: var(--radius-sm);
+  --radius-card: var(--radius-md);
+  --radius-panel: var(--radius-md);
+  --radius-modal: var(--radius-lg);
+  --radius-badge: var(--radius-pill);
+  --ring: var(--ring-width) solid var(--ring-color);
+
+  /* === 字体角色层（基于既有 --text-* 别名） === */
+  --font-display: var(--font-interface);
+  --font-title: var(--font-interface);
+  --font-body: var(--font-interface);
+  --font-label: var(--font-interface);
+  --font-mono: var(--font-mono);
+  /* 历史别名：早期 --font-data 等同于现在的等宽字体栈，保留以免组件断裂 */
+  --font-data: var(--font-mono);
+
+  --text-display: var(--text-3xl);
+  --text-title: var(--text-xl);
+  --text-subheading: var(--text-lg);
+  --text-body: var(--text-base);
+  --text-label: var(--text-sm);
+  --text-caption: var(--text-xs);
+  --text-overline: var(--text-2xs);
+
+  /* === 字重（语义化） === */
+  /* 常规档：多数元素不写 font-weight 就是它，显式声明只为了压掉浏览器默认样式——
+     Tailwind preflight 给 `b, strong` 的是 `font-weight: bolder`，在 400 的父级下解析成 700。
+     所以「让 <strong> 回到常规」必须写死数值，删声明只会让它更粗。 */
+  --weight-normal: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  /* 历史别名：早期 650 与 600 视觉差异极小，合并到 600；保留变量避免破坏现有组件 */
+  --weight-strong: 600;
+  --weight-bold: 700;
+
+  /* === 行高（按用途） === */
+  --leading-tight: 1.2;
+  --leading-snug: 1.35;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.65;
+
+  /* === 玻璃面板背景（语义化别名） ===
+     约束：--glass-bg 只能用于「背后已有面板」的嵌套浮层，禁止直接压裸地图——
+     它就是 --surface-1，而 --surface-1 的底衬是按「已有面板」的前提定的，
+     压在影像上时底衬不再成立。 */
+  --glass-bg: var(--surface-1);
+  --glass-bg-toast: color-mix(in srgb, var(--surface-3) 92%, transparent);
+
+  /* === 外壳底色（顶栏 / 底栏，同一色相的两个不透明度档） === */
+  --surface-chrome: #1e293b;
+  --surface-chrome-soft: rgba(30, 41, 59, 0.98);
+
+  /* === 面板内嵌次级区块底（比面板更浅的柔和底） === */
+  --panel-sunken-bg: color-mix(in srgb, var(--surface-3) 42%, transparent);
+  --panel-soft-bg: color-mix(in srgb, var(--surface-1) 42%, transparent);
+  --panel-soft-bg-strong: color-mix(in srgb, var(--surface-1) 58%, transparent);
+
+  /* === 表格粘性列底 ===
+     必须为不透明常量：它们要盖在「行内容 + 半透明行底 + 半透明面板 + 3D 地图」
+     的未知合成结果之上，只有不透明才能保证内容从其下方滚过时不透视。 */
+  --row-sticky-bg: rgba(15, 23, 42, 0.96);
+  --row-sticky-head-bg: rgba(30, 41, 59, 0.98);
+  --row-sticky-hover-bg: rgba(51, 65, 85, 0.96);
+  --row-sticky-active-bg: rgba(24, 74, 52, 0.96);
+
+  /* === 强调色的线 / 辉光 / 高亮文字档 === */
+  --accent-line: color-mix(in srgb, var(--accent) 88%, transparent);
+  --accent-glow: color-mix(in srgb, var(--accent) 24%, transparent);
+  --accent-pale: #d6f7e4;
+
+  /* === 必须压过任意底图的极小图形（指北针箭头等） === */
+  --text-max: #ffffff;
+
+  /* === 品牌字标渐变（独占，仅 AppTopBar 字标使用，禁止他用） === */
+  --brand-text-gradient: linear-gradient(180deg, #ffffff 8%, #a9f4c6 92%);
+
+  /* === Z-index 层级（统一来源） === */
+  --z-base: 0;
+  --z-content: 10;
+  --z-status: 20;
+  --z-rail: 30;
+  --z-floating: 40;
+  --z-modal: 50;
+  /* 弹窗内的下拉、悬浮层等「由弹窗派生但必须盖住弹窗」的浮层。 */
+  --z-popover: 55;
+  --z-toast: 60;
+  --z-tooltip: 70;
+
+  /* === 复合间距（角色化） === */
+  --space-stack-xs: var(--space-2);
+  --space-stack-sm: var(--space-4);
+  --space-stack-md: var(--space-6);
+  --space-stack-lg: var(--space-7);
+  --space-stack-xl: var(--space-8);
+
+  /* === 面板内边距规则（3 档语义） === */
+  --space-panel-compact: 12px;
+  --space-panel-default: 14px;
+  --space-panel-elevated: 16px;
+  --space-panel-head: var(--space-5);
+  --space-panel-gap: var(--space-6);
+
+  /* === 控件尺寸（按角色） === */
+  --control-xs: 24px;
+  --control-sm: 32px;
+  --control-md: 36px;
+  --control-lg: 44px;
+  --control-xl: 56px;
+
+  /* === 触摸目标 === */
+  --hit-min: 32px;
+  --hit-recommended: 36px;
+  --hit-touch: 44px;
+
+  /* === 控件配合 === */
+  --control-text: var(--text-label);
+  --control-text-strong: var(--text-body);
+  --control-radius: var(--radius-md);
+
+  /* 滚动条颜色（Firefox / 现代浏览器） */
+  scrollbar-color: color-mix(in srgb, var(--accent) 42%, transparent) transparent;
+  scrollbar-width: thin;
 }
 
 * {
@@ -50,7 +300,7 @@ body {
   min-width: 320px;
   min-height: 100vh;
   overflow: hidden;
-  background: #030913;
+  background: var(--surface-0);
 }
 
 body,
@@ -66,5 +316,260 @@ body,
 @media (max-width: 1023px) {
   body {
     overflow: auto;
+  }
+}
+
+/* === 全局工具类 === */
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* === 字体角色类 === */
+
+.text-display {
+  font-family: var(--font-display);
+  font-size: var(--text-display);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-tight);
+}
+
+.text-title {
+  font-family: var(--font-title);
+  font-size: var(--text-title);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-snug);
+}
+
+.text-subheading {
+  font-family: var(--font-body);
+  font-size: var(--text-subheading);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-snug);
+}
+
+.text-body {
+  font-family: var(--font-body);
+  font-size: var(--text-body);
+  line-height: var(--leading-normal);
+}
+
+.text-label {
+  font-family: var(--font-label);
+  font-size: var(--text-label);
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-snug);
+}
+
+.text-caption {
+  font-family: var(--font-body);
+  font-size: var(--text-caption);
+  color: var(--text-secondary);
+  line-height: var(--leading-snug);
+}
+
+.text-overline {
+  font-family: var(--font-label);
+  font-size: var(--text-overline);
+  font-weight: var(--weight-medium);
+  letter-spacing: 0.04em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.text-mono {
+  font-family: var(--font-mono);
+  font-feature-settings: "tnum";
+}
+
+/* === 按钮角色类（语义化变体） === */
+
+button.is-primary,
+.btn-primary {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+  background: color-mix(in srgb, var(--neutral) 36%, transparent);
+  font-weight: var(--weight-semibold);
+}
+
+button.is-secondary,
+.btn-secondary {
+  color: var(--text-primary);
+  border-color: var(--panel-border-soft);
+  background: var(--surface-2);
+}
+
+button.is-danger,
+.btn-danger {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger-soft) 70%, transparent);
+  background: var(--danger-bg);
+}
+
+button.is-compact,
+.btn-compact {
+  min-height: var(--control-sm);
+  padding: 0 var(--space-4);
+}
+
+button.is-ghost,
+.btn-ghost {
+  color: var(--text-secondary);
+  background: transparent;
+  border-color: transparent;
+}
+
+/* === 全局滚动条（Webkit/Blink） === */
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--accent) 38%, transparent);
+  border: 2px solid transparent;
+  border-radius: var(--radius-pill);
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--accent) 58%, transparent);
+  background-clip: padding-box;
+  border: 2px solid transparent;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* === 焦点环（统一） === */
+
+:focus-visible {
+  outline: var(--ring);
+  outline-offset: var(--ring-offset);
+  box-shadow: var(--ring-shadow);
+}
+
+button:not(:disabled):focus-visible,
+[role="button"]:not([aria-disabled="true"]):focus-visible,
+a:focus-visible {
+  outline: var(--ring);
+  outline-offset: var(--ring-offset);
+  box-shadow: var(--ring-shadow);
+}
+
+/* 小尺寸按钮（< 28px）使用紧凑焦点环，避免溢出可视区 */
+.panel-close:focus-visible,
+.north-reset:focus-visible,
+.compass-reset:focus-visible {
+  outline-offset: var(--ring-offset-tight);
+}
+
+/* === 按钮交互反馈 ===
+ *
+ * `<summary>` 与按钮同为「点一下翻转状态」的控件，这里一并纳入：分组的折叠组头用原生
+ * `<details>` / `<summary>` 承载披露语义（见 `components/base/AppCollapsibleGroup.vue`），
+ * 不补这一档的话，组头会比同面板的按钮明显发死。 */
+
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+summary {
+  transition:
+    transform var(--motion-duration-fast) var(--motion-ease-standard),
+    opacity var(--motion-duration-fast) var(--motion-ease-standard),
+    border-color var(--motion-duration-base) var(--motion-ease-standard),
+    background-color var(--motion-duration-base) var(--motion-ease-standard),
+    color var(--motion-duration-base) var(--motion-ease-standard);
+  cursor: pointer;
+}
+
+button:not(:disabled):active,
+[role="button"]:not([aria-disabled="true"]):active,
+summary:active {
+  transform: scale(0.97);
+  opacity: 0.85;
+}
+
+/* === 滑块去皮肤 ===
+ *
+ * 面板里的输入框皮肤按类型排除了 range，但整块皮肤一旦漏排除，滑块外面就会套上
+ * 一个 1px 描边 + 半透明底的圆角盒子（appearance: none 还会把轨道和圆钮一并抹掉）。
+ * 所以描边、圆角、底色在这里统一清零。高度与内边距是几何，不在这里改
+ * （各面板的档位由 _fields.scss 的 slider-geometry 统一给出）。
+ */
+
+input[type="range"] {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  border-radius: 0;
+  accent-color: var(--accent);
+  background: transparent;
+}
+
+/* 滑块同样占满整行，外扩焦点环会被滚动容器裁掉左右两段，改用内嵌环
+   （与输入框皮肤、列表项一致）。 */
+input[type="range"]:focus-visible {
+  outline-offset: var(--ring-inset);
+}
+
+/* === 开关平滑过渡 === */
+
+[role="switch"],
+.toggle-pill {
+  transition:
+    background-color var(--motion-duration-medium) var(--motion-ease-emphasized),
+    border-color var(--motion-duration-medium) var(--motion-ease-emphasized),
+    color var(--motion-duration-medium) var(--motion-ease-emphasized);
+}
+
+/* === 忙碌态：用于长时间操作的反馈，aria-busy="true" 触发 === */
+
+[aria-busy="true"] {
+  cursor: progress;
+}
+
+[aria-busy="true"]:disabled,
+[aria-busy="true"][aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+/* === 数字字体 === */
+
+.tabular-nums,
+.text-mono,
+.text-display {
+  font-feature-settings: "tnum";
+}
+
+/* === 减少动效偏好（无障碍） === */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  button:not(:disabled):active,
+  [role="button"]:not([aria-disabled="true"]):active {
+    transform: none;
+    opacity: 1;
   }
 }

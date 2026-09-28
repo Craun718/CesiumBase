@@ -10,6 +10,7 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+dist-test
 *.local
 
 # Editor directories and files
@@ -31,3 +32,12 @@ dist-ssr
 # Python
 __pycache__/
 *.pyc
+
+# 本地 Git worktree
+.worktree/
+
+# Claude Code 本地配置
+.claude/
+
+# MOCK 数据不上仓库
+layers.local.ts

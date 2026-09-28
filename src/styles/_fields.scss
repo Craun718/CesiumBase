@@ -1,0 +1,276 @@
+// 输入框统一皮肤。
+//
+// 迁移前，全项目 51 条作用于 input / textarea 的规则各自微调：实底档有 4 种内边距、
+// 2 种圆角，有的写了 appearance / color-scheme 有的没写，缺 font: inherit 的与同排的
+// AppSelect 差出 6~9px 高度；玻璃档有 5 种内边距、3 种底色基准、5 种半透明强调色描边。
+// 这里按「控件在哪儿」收敛成三档皮肤 + 一个搜索框外壳，调用方只 @include，不再自己写属性。
+//
+// 本文件只放 mixin —— 一旦写入裸规则，就会被 16 个 @use 它的文件各输出一份。
+// 注释一律用 `//`（静默注释，不进产物），不把这份说明复制进每个组件的样式里。
+// 验收：node_modules/.bin/sass --no-source-map src/styles/_fields.scss 不应有任何输出。
+//
+// 焦点态一律写在各档 mixin 内部，不交给调用方。
+//
+// `box-shadow: none` 是这里的核心：全局 `:focus-visible` 会补一层衬托
+// `0 0 0 var(--ring-halo) var(--ring-contrast)`（6px 直角外扩），而 `--ring-contrast`
+// 与 `--panel-input-bg`（= `--surface-3`）是同一个颜色 —— 衬托压在字段四周，看起来就是
+// 输入框的底色从圆角外鼓出一圈直角，也就是「背景溢出」。衬托只对「环压在裸地图上」
+// 有意义（见 global.css 的焦点环注释与 checkContrast.mjs 的 checkFocusRing）；
+// 面板和浮层的底色是已知的，单色强调环足够（checkContrast.mjs 已按面板表面校验
+// `--ring-color` ≥ 3:1），所以输入框一概不画衬托。
+//
+// `outline-offset: var(--ring-inset)`：字段所在的 .field-list / .editor-form / .modal-card
+// 都是 `overflow: auto` 且字段占满整行，外扩环的左右两段会被滚动容器整条裁掉、只剩上下两截。
+// 内嵌 2px 的环正好覆盖 1px 描边并向内延伸 1px，与 `&:focus` 的强调色描边连成一条 2px 实线，
+// 不会叠成双线。
+
+/// 实底档：面板与弹窗表单里的字段。
+/// @param $width 是否需要撑满（自己控制 flex/grid 基准时传 false）。
+@mixin field-control($width: true) {
+  @if $width {
+    width: 100%;
+  }
+
+  min-width: 0;
+  padding: 9px;
+  border: 1px solid var(--panel-line-strong);
+  border-radius: var(--radius-input);
+  appearance: none;
+  color-scheme: dark;
+  color: var(--text-primary);
+  // `font: inherit` 是「同档」的关键：不写它，<input> 会用 UA 字体和 line-height: normal，
+  // 与同排有 `font: inherit` 的 AppSelect 差出 6~9px 高度，同一行怎么都对齐不了。
+  font: inherit;
+  font-size: var(--text-body);
+  background-color: var(--panel-input-bg);
+  transition: border-color var(--motion-duration-base) var(--motion-ease-standard);
+
+  // 鼠标悬停 / 点击只换描边（与 AppSelect 触发器一致），焦点环只由 :focus-visible 给。
+  &:not(:disabled):hover {
+    border-color: var(--accent);
+  }
+
+  &:focus {
+    border-color: var(--accent);
+  }
+
+  &:focus-visible {
+    outline: var(--ring);
+    outline-offset: var(--ring-inset);
+    box-shadow: none;
+  }
+
+  &:disabled {
+    color: var(--text-muted);
+    cursor: not-allowed;
+  }
+}
+
+/// 玻璃档：压在裸地图上的浮层里的字段。
+/// 高度固定 --control-md，与 AppSelect 的 glass 变体、搜索框外壳同一档；档内只有内边距、
+/// 字体、底色基准分叉。
+/// @param $numeric 数值读数（坐标、角度、高度、速度）：等宽字体，横向内边距更紧 ——
+///   ViewOperationsPanel 的 .parameter-head 第一列只有 68px，9 字符的经纬度再宽就会溢出。
+/// @param $width 同 field-control。
+@mixin glass-control($numeric: false, $width: true) {
+  @if $width {
+    width: 100%;
+  }
+
+  min-width: 0;
+  height: var(--control-md);
+  border: 1px solid var(--panel-inner-line);
+  border-radius: var(--radius-input);
+  appearance: none;
+  color-scheme: dark;
+  color: var(--text-primary);
+  font: inherit;
+  // 玻璃底压在裸地图上，底色必须半透明，与实底档的 --panel-input-bg 区分。
+  background: color-mix(in srgb, var(--color-panel) 72%, transparent);
+  transition: border-color var(--motion-duration-base) var(--motion-ease-standard);
+
+  @if $numeric {
+    padding: 0 var(--space-3);
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+  } @else {
+    padding: 0 var(--space-4);
+    font-size: var(--text-md);
+  }
+
+  &:not(:disabled):hover {
+    border-color: var(--accent);
+  }
+
+  &:focus {
+    border-color: var(--accent);
+  }
+
+  &:focus-visible {
+    outline: var(--ring);
+    outline-offset: var(--ring-inset);
+    box-shadow: none;
+  }
+
+  &:disabled {
+    color: var(--text-muted);
+    cursor: not-allowed;
+  }
+}
+
+/// 行内档：列表行里就地重命名的小输入框（绘制成果、新增发现结果）。
+/// 不能给固定高度 —— 它与同行内容共处一行，行高变高会减少列表可见行数。
+/// 静止时描边透明尽量不打扰，悬停才显形，聚焦时用强调色描边 + 强调色底。
+@mixin inline-control() {
+  min-width: 0;
+  padding: 5px 6px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-xs);
+  appearance: none;
+  color-scheme: dark;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: var(--text-sm);
+  background: color-mix(in srgb, var(--surface-3) 58%, transparent);
+  transition:
+    border-color var(--motion-duration-base) var(--motion-ease-standard),
+    color var(--motion-duration-base) var(--motion-ease-standard),
+    background var(--motion-duration-base) var(--motion-ease-standard);
+
+  &:not(:disabled):hover {
+    border-color: var(--panel-inner-line);
+    color: var(--text-primary);
+  }
+
+  &:focus-visible {
+    border-color: var(--accent);
+    color: var(--text-primary);
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+    outline: var(--ring);
+    outline-offset: var(--ring-inset);
+    box-shadow: none;
+  }
+
+  &:disabled {
+    color: var(--text-muted);
+    cursor: not-allowed;
+  }
+}
+
+/// 属性行：标签固定一列、控件在右列占满。
+/// 面板里的详情卡（资源详情、图层编辑）用它把每个字段压成一行——「标签在上」时
+/// 每个字段要占两行（标签行 + 控件行），560px 宽的列里四个字段就是 240px，
+/// 而控件其实只需要半宽；左置后每个字段只占一行，纵向省下约三分之一。
+/// @param $label 标签列宽。定宽（默认 88px）让相邻行的控件左边线对齐；
+///   单字标签（经纬度的东南西北）传 auto，不必为 4 个字段各留 88px 的空列。
+@mixin property-row($label: 88px) {
+  display: grid;
+  grid-template-columns: $label minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-4);
+}
+
+/// 搜索框外壳：图标绝对定位在左，输入框自己带整块皮肤（不再有「外壳画框、内层透明打字区」
+/// 的两层结构，焦点态因此也回到字段自己的处理，不需要 :focus-within 特例）。
+/// 图标不写 top：它是 flex 容器的绝对定位子元素，会按 align-items: center 落在垂直中线上，
+/// 这样两种档位（定高的玻璃档 / 由内边距撑高的实底档）都不用各写一套定位。
+/// @param $tier 所在位置的分档：面板里传 field，压地图的浮层里传 glass。
+/// @param $trailing 右侧是否还有一枚清除按钮（LayerTreePanel 的 .search-clear）。
+@mixin search-shell($tier, $trailing: false) {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+
+  // 玻璃档浮层里的控件统一到 --control-md；实底档的高度由输入框的内边距决定。
+  @if $tier == glass {
+    height: var(--control-md);
+  }
+
+  > i {
+    position: absolute;
+    left: var(--space-4);
+    color: var(--text-muted);
+    font-size: var(--text-md);
+    // 点图标等于点输入框的留白区，不该吃掉一次聚焦点击
+    pointer-events: none;
+  }
+
+  > input {
+    @if $tier == glass {
+      @include glass-control($numeric: false, $width: true);
+    } @else {
+      @include field-control($width: true);
+    }
+
+    // 让出左侧图标的位置
+    padding-left: 30px;
+
+    @if $trailing {
+      // 清除按钮 right:4px、宽 32px，占满右侧 36px，文字区必须让到位
+      padding-right: 36px;
+    } @else {
+      padding-right: var(--space-5);
+    }
+  }
+}
+
+/// 滑块几何：高度与内边距。
+/// 皮肤不在这里 —— 滑块的描边、圆角、底色由 global.css 的 `input[type="range"]` 重置清零，
+/// 这里只把「多高、留多少内边距」收成一处，免得各面板各写一遍 16px。
+/// 不给 scale 类的扩大命中，是因为面板本来就紧凑，撑高一行会挤掉列表可见行数。
+@mixin slider-geometry() {
+  height: 16px;
+  padding: 0;
+}
+
+// === 便捷包装 ===
+// 把「哪些 input 类型该吃皮肤」收在一处，否则 19 个调用点各写一遍 :not() 链，
+// 正是本次要消灭的漂移来源。
+//
+// ⚠ 必须显式排除 range / checkbox / radio / file：用 input[type="text"] 之类的白名单是错的 ——
+// 仓里有大量不写 type 的 <input>（等价于 text），属性选择器匹配的是「属性」而不是生效类型，
+// 它们会被静默漏掉，而这些正是最需要皮肤的表单字段。
+//
+// ⚠ 排除链裹在 `:where()` 里：`:not()` 会把参数的属性特异性算进选择器，四个叠起来是 (0,4,0)，
+// 展开后比组件里手写的 `.parameter-number { padding: … }`（(0,2,0)）还重 —— 组件里的微调
+// 会被整片压掉。`:where()` 零特异性，权重回到与迁移前手写的 `input[data-v-x]` 等同，
+// 局部覆盖照旧按源码顺序与类特异性生效。
+
+/// 实底档：面板 / 弹窗表单。range 排除后滑块恢复原生外观，checkbox 不再被撑成描边方块。
+@mixin field-controls($width: true) {
+  input:where(:not([type="range"]):not([type="checkbox"]):not([type="radio"]):not([type="file"])),
+  textarea {
+    @include field-control($width: $width);
+  }
+
+  input[type="range"] {
+    @include slider-geometry;
+  }
+}
+
+/// 玻璃档：数值输入走等宽分支，其余文本框走界面字体分支。
+@mixin glass-controls($width: true) {
+  input:where(
+    :not([type="range"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]):not(
+        [type="number"]
+      )
+  ) {
+    @include glass-control($numeric: false, $width: $width);
+  }
+
+  input[type="number"] {
+    @include glass-control($numeric: true, $width: $width);
+  }
+
+  input[type="range"] {
+    @include slider-geometry;
+  }
+}
+
+/// 行内档：同样排除非文本控件（发现列表里勾选框与重命名框同排）。
+@mixin inline-controls() {
+  input:where(:not([type="range"]):not([type="checkbox"]):not([type="radio"]):not([type="file"])) {
+    @include inline-control;
+  }
+}

@@ -1,0 +1,27 @@
+# 统一换行符：文本文件在仓库与检出一律使用 LF，
+# 消除 Windows（core.autocrlf）与其他平台协作时产生的整文件伪差异。
+* text=auto eol=lf
+
+# Windows 批处理脚本要求 CRLF，否则可能无法执行
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# 二进制文件禁止任何换行符转换
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.avif binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.eot binary
+*.zip binary
+*.gz binary
+*.7z binary
+*.glb binary
+*.ktx2 binary
+*.basis binary

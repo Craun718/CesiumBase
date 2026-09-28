@@ -6,17 +6,6 @@
   max-height: 100%;
   overflow-y: auto;
   pointer-events: auto;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(72, 229, 255, 0.45) transparent;
-}
-
-.rail-panel::-webkit-scrollbar {
-  width: 4px;
-}
-
-.rail-panel::-webkit-scrollbar-thumb {
-  border-radius: 2px;
-  background: rgba(72, 229, 255, 0.45);
 }
 
 .panel-left {

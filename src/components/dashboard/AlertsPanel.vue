@@ -49,20 +49,20 @@ const alerts = [
   align-items: flex-start;
   gap: 10px;
   padding: 9px 10px;
-  border-left: 2px solid var(--blue);
-  background: rgba(19, 40, 72, 0.44);
+  border-left: 2px solid var(--neutral);
+  background: color-mix(in srgb, var(--neutral-soft) 44%, transparent);
 }
 
 .alert-list .critical {
-  border-left-color: var(--rose);
+  border-left-color: var(--danger);
 }
 
 .alert-list .warning {
-  border-left-color: var(--amber);
+  border-left-color: var(--warning);
 }
 
 .alert-list .info {
-  border-left-color: var(--cyan);
+  border-left-color: var(--accent);
 }
 
 .alert-dot {
@@ -71,19 +71,19 @@ const alerts = [
   height: 7px;
   margin-top: 5px;
   border-radius: 50%;
-  background: var(--blue);
+  background: var(--neutral);
 }
 
 .critical .alert-dot {
-  background: var(--rose);
+  background: var(--danger);
 }
 
 .warning .alert-dot {
-  background: var(--amber);
+  background: var(--warning);
 }
 
 .info .alert-dot {
-  background: var(--cyan);
+  background: var(--accent);
 }
 
 .alert-list strong,
@@ -96,13 +96,13 @@ const alerts = [
 
 .alert-list strong {
   color: var(--text-primary);
-  font-size: 13px;
-  font-weight: 600;
+  font-size: var(--text-body);
+  font-weight: var(--weight-semibold);
 }
 
 .alert-list small {
   margin-top: 3px;
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 </style>

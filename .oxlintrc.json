@@ -1,8 +1,11 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["oxc", "typescript", "unicorn", "vue"],
+  "plugins": ["oxc", "typescript", "unicorn", "vue", "import"],
   "env": {
     "browser": true
+  },
+  "rules": {
+    "import/no-relative-parent-imports": "warn"
   },
   "ignorePatterns": ["dist", "node_modules"]
 }

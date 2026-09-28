@@ -28,9 +28,9 @@ if not ACCESS_KEY or not SECRET_KEY:
         "请参考 .env.example 配置后再运行脚本"
     )
 
-BUCKET_NAME = "terrain"
-LOCAL_DIR = r"C:\Users\GXRS-201RJ\Documents\guangxi"  # CesiumLab 输出目录
-REMOTE_PREFIX = "guangxi"  # RustFS 中的存储路径前缀
+BUCKET_NAME = "real-scene"
+LOCAL_DIR = r"C:\Users\GXRS-201RJ\Documents\tiles\Data"  # CesiumLab 输出目录
+REMOTE_PREFIX = "xinhegtanglucun"  # RustFS 中的存储路径前缀
 
 # ===== 忽略规则（按需增删；目录会就地过滤，避免继续遍历） =====
 # 精确名称匹配：按文件名或文件夹名整体匹配（区分大小写）

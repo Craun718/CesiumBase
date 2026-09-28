@@ -8,6 +8,7 @@ import type {
   RailCommand,
   RailPanelPlacement,
 } from "./operations"
+import { resolveRailActionActive, shouldCloseExternalPanelOnMenuChange } from "./operations"
 
 const props = defineProps<{
   side: OperationsSide
@@ -88,12 +89,16 @@ function closeSecondaryMenu() {
   expandedMenuId.value = null
 }
 
+/** 判断一级操作按钮是否处于激活态。 */
 function isRailActionActive(actionId: ActionId) {
-  return (
-    Boolean(props.getExternalPanel?.(actionId)) ||
-    expandedMenuId.value === actionId ||
-    activePanelId.value === actionId
-  )
+  const action = props.actions.find((item) => item.id === actionId)
+
+  return resolveRailActionActive({
+    externalPanelOpen: Boolean(props.getExternalPanel?.(actionId)),
+    expandedMenuOpen: expandedMenuId.value === actionId,
+    activePanelOpen: activePanelId.value === actionId,
+    highlightExternalPanel: action?.highlightExternalPanel,
+  })
 }
 
 function getActionControls(actionId: ActionId) {
@@ -107,7 +112,7 @@ function getActionControls(actionId: ActionId) {
 }
 
 watch(expandedMenuId, (nextActionId, previousActionId) => {
-  if (!previousActionId || previousActionId === nextActionId) return
+  if (!shouldCloseExternalPanelOnMenuChange(previousActionId, nextActionId)) return
 
   activePanelId.value = null
   props.getExternalPanel?.(previousActionId)?.close()
@@ -134,8 +139,10 @@ watch(expandedMenuId, (nextActionId, previousActionId) => {
         class="rail-button"
         :class="{ 'is-active': isRailActionActive(action.id) }"
         type="button"
+        :disabled="action.disabled"
         :aria-expanded="isRailActionActive(action.id)"
         :aria-controls="getActionControls(action.id)"
+        :title="action.disabled ? action.disabledReason : undefined"
         @click="toggleAction(action.id)"
       >
         <i class="bi" :class="action.icon" aria-hidden="true"></i>

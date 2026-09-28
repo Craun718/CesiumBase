@@ -1,0 +1,25 @@
+{
+  "extends": "@vue/tsconfig/tsconfig.dom.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.test.tsbuildinfo",
+    "noEmit": false,
+    "rewriteRelativeImportExtensions": true,
+    "paths": {
+      "@/*": ["./src/*"],
+      "@tests/*": ["./tests/*"],
+      "@cesium-base/map-engine-entry": ["./tests/mapEngineEntryStub.ts"]
+    },
+    "outDir": "./dist-test",
+    "rootDir": ".",
+    "types": ["node", "vite/client"],
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": [
+    "tests/**/*.ts",
+    "src/features/layers/types.ts",
+    "src/map/engines/cesium/layerOperations.ts"
+  ]
+}

@@ -70,8 +70,8 @@ function reset() {
   gap: 12px;
   padding: 22px;
   overflow: auto;
-  border: 1px solid rgba(244, 63, 94, 0.38);
-  background: rgba(7, 20, 42, 0.94);
+  border: 1px solid var(--danger-soft);
+  background: color-mix(in srgb, var(--color-panel) 94%, transparent);
 
   pre {
     width: 100%;
@@ -80,9 +80,9 @@ function reset() {
     margin: 0;
     overflow: auto;
     color: var(--text-secondary);
-    font-family: ui-monospace, Consolas, monospace;
-    font-size: 12px;
-    line-height: 1.55;
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    line-height: var(--leading-relaxed);
     white-space: pre-wrap;
     word-break: break-word;
   }
@@ -93,15 +93,15 @@ function reset() {
   min-width: 0;
   align-items: center;
   gap: 10px;
-  color: var(--rose);
-  font-size: 14px;
+  color: var(--danger);
+  font-size: var(--text-md);
 
   strong {
     overflow: hidden;
     color: var(--text-primary);
-    font-size: 15px;
-    font-weight: 650;
-    line-height: 1.3;
+    font-size: var(--text-lg);
+    font-weight: var(--weight-semibold);
+    line-height: var(--leading-snug);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -115,13 +115,13 @@ function reset() {
   height: 34px;
   padding: 0;
   border: 1px solid var(--panel-border);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: var(--text-primary);
-  background: rgba(31, 62, 104, 0.82);
+  background: color-mix(in srgb, var(--neutral) 32%, transparent);
 
   &:hover,
   &:focus-visible {
-    border-color: rgba(72, 229, 255, 0.58);
+    border-color: color-mix(in srgb, var(--accent) 58%, transparent);
   }
 }
 </style>

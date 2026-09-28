@@ -3,7 +3,6 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue"
 import {
   DEFAULT_FLIGHT_CLEARANCE,
   DEFAULT_FLIGHT_HEIGHT,
-  DEFAULT_FLIGHT_SPEED,
   MAX_FLIGHT_WAYPOINTS,
   normalizeFlightRoute,
   useMapController,
@@ -33,7 +32,6 @@ const routeForm = reactive({
   name: "",
   defaultHeight: String(DEFAULT_FLIGHT_HEIGHT),
   safetyClearance: String(DEFAULT_FLIGHT_CLEARANCE),
-  speed: String(DEFAULT_FLIGHT_SPEED),
 })
 
 const playbackActive = computed(() => playback.value.status !== "idle")
@@ -87,14 +85,12 @@ function syncRouteForm() {
     routeForm.name = ""
     routeForm.defaultHeight = String(DEFAULT_FLIGHT_HEIGHT)
     routeForm.safetyClearance = String(DEFAULT_FLIGHT_CLEARANCE)
-    routeForm.speed = String(DEFAULT_FLIGHT_SPEED)
     return
   }
 
   routeForm.name = route.name
   routeForm.defaultHeight = String(Math.round(route.defaultHeight))
   routeForm.safetyClearance = String(Math.round(route.safetyClearance))
-  routeForm.speed = String(Math.round(route.speed))
 }
 
 /** 提交航线名称表单。 */
@@ -108,7 +104,7 @@ function applyRouteName() {
 }
 
 /** 校验并提交一个航线数值参数。 */
-function applyRouteSetting(field: "defaultHeight" | "safetyClearance" | "speed") {
+function applyRouteSetting(field: "defaultHeight" | "safetyClearance") {
   const route = selectedRoute.value
   if (!route) return
 
@@ -122,16 +118,13 @@ function applyRouteSetting(field: "defaultHeight" | "safetyClearance" | "speed")
   const normalized = normalizeFlightRoute({ ...route, [field]: value })
   routeForm.defaultHeight = String(Math.round(normalized.defaultHeight))
   routeForm.safetyClearance = String(Math.round(normalized.safetyClearance))
-  routeForm.speed = String(Math.round(normalized.speed))
   updateSelectedRoute({
     defaultHeight: normalized.defaultHeight,
     safetyClearance: normalized.safetyClearance,
-    speed: normalized.speed,
   })
 
   if (playback.value.status !== "idle") {
     mapController.updateFlightPlayback({
-      speed: normalized.speed,
       loop: normalized.loop,
     })
   }
@@ -147,7 +140,7 @@ function updateHeightSlider(event: Event) {
 }
 
 /** 提交范围滑杆对应的航线参数。 */
-function updateRangeSetting(field: "safetyClearance" | "speed", event: Event) {
+function updateRangeSetting(field: "safetyClearance", event: Event) {
   if (!(event.target instanceof HTMLInputElement)) return
 
   routeForm[field] = event.target.value
@@ -301,7 +294,7 @@ function sliderToHeight(position: number) {
       </div>
     </section>
 
-    <section class="block" aria-label="安全与速度参数">
+    <section class="block" aria-label="安全参数">
       <div class="parameter">
         <div class="parameter-head">
           <span>安全离地</span>
@@ -324,31 +317,6 @@ function sliderToHeight(position: number) {
           aria-label="安全离地间距"
           :disabled="routeEditorDisabled"
           @input="updateRangeSetting('safetyClearance', $event)"
-        />
-      </div>
-
-      <div class="parameter">
-        <div class="parameter-head">
-          <span>飞行速度</span>
-          <input
-            v-model="routeForm.speed"
-            type="number"
-            min="1"
-            max="500"
-            step="1"
-            :disabled="!selectedRoute"
-            @change="applyRouteSetting('speed')"
-          />
-        </div>
-        <input
-          :value="Number(routeForm.speed)"
-          type="range"
-          min="1"
-          max="500"
-          step="1"
-          aria-label="飞行速度，单位米每秒"
-          :disabled="!selectedRoute"
-          @input="updateRangeSetting('speed', $event)"
         />
       </div>
     </section>
@@ -412,11 +380,13 @@ function sliderToHeight(position: number) {
 </template>
 
 <style scoped lang="scss">
+@use "../styles/fields" as fields;
+
 .route-settings {
   display: grid;
   gap: 12px;
   min-width: 0;
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 
 .block {
@@ -441,14 +411,14 @@ function sliderToHeight(position: number) {
   h3 {
     margin: 0;
     color: var(--text-primary);
-    font-size: 12px;
-    font-weight: 700;
+    font-size: var(--text-sm);
+    font-weight: var(--weight-bold);
   }
 
   > span {
     overflow: hidden;
     color: var(--text-muted);
-    font-size: 11px;
+    font-size: var(--text-xs);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -472,13 +442,14 @@ button {
   justify-content: center;
   gap: 4px;
   min-width: 0;
-  padding: 7px 6px;
+  min-height: var(--control-md);
+  padding: var(--space-2) var(--space-4);
   border: 1px solid var(--panel-inner-line);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: var(--text-secondary);
-  font-size: 11px;
-  line-height: 1.2;
-  background: rgba(7, 20, 42, 0.55);
+  font-size: var(--text-xs);
+  line-height: var(--leading-tight);
+  background: color-mix(in srgb, var(--color-panel) 55%, transparent);
   cursor: pointer;
   transition:
     border-color 140ms ease,
@@ -490,34 +461,34 @@ button:hover:not(:disabled),
 button:focus-visible {
   border-color: var(--panel-border);
   color: var(--text-primary);
-  outline: none;
 }
 
 button:focus-visible {
-  border-color: rgba(72, 229, 255, 0.6);
-  box-shadow: 0 0 0 2px rgba(72, 229, 255, 0.22);
+  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+  outline: 2px solid color-mix(in srgb, var(--accent) 60%, transparent);
+  outline-offset: var(--ring-offset);
 }
 
 button:disabled {
   border-color: var(--panel-inner-line);
   color: var(--text-muted);
-  background: rgba(7, 20, 42, 0.32);
+  background: color-mix(in srgb, var(--color-panel) 32%, transparent);
   cursor: not-allowed;
 }
 
 button.is-active {
-  border-color: rgba(72, 229, 255, 0.58);
-  color: var(--cyan);
-  background: rgba(72, 229, 255, 0.09);
+  border-color: color-mix(in srgb, var(--accent) 58%, transparent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
 }
 
 button.danger {
-  color: var(--amber);
+  color: var(--warning);
 }
 
 button.danger:hover:not(:disabled) {
-  border-color: rgba(255, 182, 72, 0.58);
-  background: rgba(255, 182, 72, 0.08);
+  border-color: color-mix(in srgb, var(--warning) 58%, transparent);
+  background: color-mix(in srgb, var(--warning) 8%, transparent);
 }
 
 label {
@@ -527,39 +498,14 @@ label {
 
   span {
     color: var(--text-secondary);
-    font-size: 11px;
-    font-weight: 600;
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
   }
 }
 
-input {
-  width: 100%;
-  min-width: 0;
-  padding: 6px 7px;
-  border: 1px solid var(--panel-inner-line);
-  border-radius: 4px;
-  color: var(--text-primary);
-  font-family: var(--font-data);
-  font-size: 11px;
-  background: rgba(7, 20, 42, 0.58);
-  outline: none;
-  transition: border-color 140ms ease;
-}
-
-input[type="range"] {
-  height: 16px;
-  padding: 0;
-  accent-color: var(--cyan);
-}
-
-input:focus {
-  border-color: rgba(72, 229, 255, 0.58);
-}
-
-input:disabled {
-  color: var(--text-muted);
-  cursor: not-allowed;
-}
+/* 面板字段统一走玻璃档（见 _fields.scss）：本面板浮在裸地图上，底色必须半透明。
+   数值输入自动走等宽分支；滑块不吃这套皮肤，只有高度与内边距来自同一处。 */
+@include fields.glass-controls;
 
 .parameter {
   display: grid;
@@ -575,15 +521,15 @@ input:disabled {
   span {
     overflow: hidden;
     color: var(--text-secondary);
-    font-size: 11px;
-    font-weight: 600;
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
   small {
     color: var(--text-muted);
-    font-size: 10px;
+    font-size: var(--text-2xs);
     text-align: right;
   }
 }
@@ -603,42 +549,43 @@ input:disabled {
   align-items: center;
   padding: 4px 5px;
   border: 1px solid var(--panel-inner-line);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: var(--text-secondary);
-  background: rgba(7, 20, 42, 0.4);
+  background: color-mix(in srgb, var(--color-panel) 40%, transparent);
 
   > span {
-    color: var(--cyan);
-    font-family: var(--font-data);
-    font-size: 10px;
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: var(--text-2xs);
     text-align: center;
   }
 
   small {
     overflow: hidden;
-    font-family: var(--font-data);
-    font-size: 10px;
+    font-family: var(--font-mono);
+    font-size: var(--text-2xs);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 }
 
 .icon-button {
-  padding: 6px 0;
+  min-height: var(--control-sm);
+  padding: var(--space-2) 0;
 }
 
 .feedback {
   margin: 0;
   padding: 7px 8px;
   border: 1px solid var(--panel-inner-line);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: var(--text-secondary);
-  font-size: 11px;
-  background: rgba(7, 20, 42, 0.5);
+  font-size: var(--text-xs);
+  background: color-mix(in srgb, var(--color-panel) 50%, transparent);
 
   &.error {
-    border-color: rgba(255, 182, 72, 0.45);
-    color: var(--amber);
+    border-color: color-mix(in srgb, var(--warning) 45%, transparent);
+    color: var(--warning);
   }
 }
 

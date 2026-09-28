@@ -307,6 +307,8 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped lang="scss">
+@use "../styles/fields" as fields;
+
 .view-operations {
   display: grid;
   gap: 16px;
@@ -324,27 +326,13 @@ label {
   gap: 5px;
   min-width: 0;
   color: var(--text-secondary);
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 
-input {
-  width: 100%;
-  min-width: 0;
-  padding: 7px 8px;
-  border: 1px solid var(--panel-inner-line);
-  border-radius: 4px;
-  color: var(--text-primary);
-  font-family: ui-monospace, Consolas, monospace;
-  font-size: 12px;
-  background: rgba(7, 20, 42, 0.58);
-  outline: none;
-}
-
-input:focus-visible {
-  border-color: rgba(72, 229, 255, 0.68);
-  outline: 2px solid rgba(72, 229, 255, 0.3);
-  outline-offset: 1px;
-}
+/* 面板字段统一走玻璃档（见 _fields.scss）：本面板浮在裸地图上，底色必须半透明。
+   经度、纬度、方位角、俯仰角、相机高度都是 `type="number"`，自动落到等宽分支 ——
+   `minmax(0, 1fr) 68px` 的数值列里横向内边距只有 6px，值长了不会顶到框边。 */
+@include fields.glass-controls;
 
 .parameter {
   display: grid;
@@ -359,26 +347,12 @@ input:focus-visible {
 }
 
 .parameter-head label {
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 
+/* 只留读数对齐；内边距交给数值档（横向同为 6px，高度由 --control-md 固定）。 */
 .parameter-number {
-  padding: 5px 6px;
   text-align: right;
-}
-
-.parameter-slider {
-  height: 16px;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  accent-color: var(--cyan);
-}
-
-.parameter-slider:focus-visible {
-  outline: 2px solid rgba(72, 229, 255, 0.42);
-  outline-offset: 2px;
 }
 
 .action-button {
@@ -386,13 +360,13 @@ input:focus-visible {
   align-items: center;
   justify-content: center;
   gap: 7px;
-  min-height: 36px;
-  padding: 0 10px;
-  border: 1px solid rgba(79, 151, 255, 0.32);
-  border-radius: 4px;
+  min-height: var(--control-md);
+  padding: 0 var(--space-5);
+  border: 1px solid color-mix(in srgb, var(--neutral) 32%, transparent);
+  border-radius: var(--radius-sm);
   color: var(--text-secondary);
-  background: rgba(19, 40, 72, 0.44);
-  font-size: 12px;
+  background: color-mix(in srgb, var(--neutral-soft) 44%, transparent);
+  font-size: var(--text-sm);
   transition:
     color 160ms ease,
     border-color 160ms ease,
@@ -401,24 +375,19 @@ input:focus-visible {
 
 .action-button:hover,
 .action-button:focus-visible {
-  border-color: rgba(72, 229, 255, 0.72);
-  color: var(--cyan);
-  background: rgba(16, 47, 83, 0.86);
-}
-
-.action-button:focus-visible {
-  outline: 2px solid rgba(72, 229, 255, 0.42);
-  outline-offset: 2px;
+  border-color: color-mix(in srgb, var(--accent) 72%, transparent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--neutral-deep) 86%, transparent);
 }
 
 .operation-feedback {
   margin: 0;
   color: var(--text-secondary);
-  font-size: 12px;
-  line-height: 1.35;
+  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
 }
 
 .operation-feedback.is-error {
-  color: var(--rose);
+  color: var(--danger);
 }
 </style>

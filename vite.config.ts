@@ -14,28 +14,35 @@ const selectedEngineEntry = (mode: string) =>
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
-  const define: Record<string, string> = {}
-
-  if (mode !== "deck-gl") {
-    define.CESIUM_BASE_URL = JSON.stringify("/cesium/")
-  }
+  const isCesiumMode = mode !== "deck-gl"
 
   return {
-    define,
+    define: isCesiumMode ? { CESIUM_BASE_URL: JSON.stringify("/cesium/") } : {},
+    server: {
+      // 监听所有网卡，允许局域网内其他设备访问
+      host: true,
+    },
     resolve: {
       alias: [
         {
           find: /^@cesium-base\/map-engine-entry$/,
           replacement: selectedEngineEntry(mode),
         },
+        {
+          find: /^@\/(.*)$/,
+          replacement: path.resolve(projectDir, "src", "$1"),
+        },
+        {
+          find: /^@tests\/(.*)$/,
+          replacement: path.resolve(projectDir, "tests", "$1"),
+        },
       ],
     },
     plugins: [
       vue(),
       tailwindcss(),
-      ...(mode === "deck-gl"
-        ? []
-        : [
+      ...(isCesiumMode
+        ? [
             viteStaticCopy({
               targets: [
                 {
@@ -51,7 +58,8 @@ export default defineConfig(({ mode }) => {
                 },
               ],
             }),
-          ]),
+          ]
+        : []),
     ],
   }
 })

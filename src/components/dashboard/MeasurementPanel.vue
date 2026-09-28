@@ -1,14 +1,18 @@
 <script setup lang="ts">
 import { computed } from "vue"
 import RailPanel from "./RailPanel.vue"
-import { measurementOperations, type MapControls } from "./mapControls"
+import AppRadio from "../../components/base/AppRadio.vue"
+import AppRadioGroup from "../../components/base/AppRadioGroup.vue"
+import type { MeasurementState } from "../../map"
+import { measurementOperations } from "./mapControls"
+import type { MeasurementControls } from "./composables/useMeasurementControls"
 
 const props = defineProps<{
-  controls: MapControls
+  controls: MeasurementControls
   placement: "right" | "right-third"
 }>()
 
-const state = computed(() => props.controls.measurementState)
+const state = computed(() => props.controls.state)
 const resultText = computed(() => formatResult(state.value))
 const statusText = computed(() => {
   if (state.value.error) return state.value.error
@@ -34,28 +38,8 @@ const displayPoints = computed(() => {
   return points
 })
 
-/** 计算单选按钮的焦点顺序，保证 radiogroup 支持键盘轮选。 */
-function getModeTabIndex(index: number) {
-  if (state.value.mode) return state.value.mode === measurementOperations[index].id ? 0 : -1
-  return index === 0 ? 0 : -1
-}
-
-/** 处理测量模式单选组的方向键切换。 */
-function handleModeKeydown(event: KeyboardEvent, index: number) {
-  const offset = event.key === "ArrowDown" || event.key === "ArrowRight" ? 1 : -1
-  const nextIndex = (index + offset + measurementOperations.length) % measurementOperations.length
-  const target = event.currentTarget instanceof HTMLElement ? event.currentTarget : undefined
-  const nextTarget = target?.parentElement?.children[nextIndex]
-
-  if (!(nextTarget instanceof HTMLElement)) return
-
-  event.preventDefault()
-  nextTarget.click()
-  nextTarget.focus()
-}
-
 /** 格式化当前模式的测量结果。 */
-function formatResult(measurementState: MapControls["measurementState"]) {
+function formatResult(measurementState: MeasurementState) {
   const value = measurementState.resultValue
   if (value === undefined) return "--"
 
@@ -90,29 +74,27 @@ function getSourceLabel(source: "scene" | "terrain") {
     title="测量操作"
     tag="MEASURE"
     close-label="关闭测量操作"
-    @close="controls.closeMeasurementPanel()"
+    @close="controls.closePanel()"
   >
     <div class="measurement-body">
-      <div class="mode-grid" role="radiogroup" aria-label="测量模式">
-        <button
-          v-for="(operation, index) in measurementOperations"
+      <!-- 选中态由 state.mode 单向决定：Reka 只回传选中意图，是否真正生效仍看 activate 的结果 -->
+      <AppRadioGroup class="mode-grid" aria-label="测量模式" :model-value="state.mode">
+        <AppRadio
+          v-for="operation in measurementOperations"
           :key="operation.id"
-          class="mode-option"
-          :class="{ 'is-active': state.mode === operation.id }"
-          type="button"
-          role="radio"
-          :aria-checked="state.mode === operation.id"
-          :tabindex="getModeTabIndex(index)"
-          @click="controls.activateMeasurementOperation(operation.id)"
-          @keydown.down.prevent="handleModeKeydown($event, index)"
-          @keydown.up.prevent="handleModeKeydown($event, index)"
-          @keydown.right.prevent="handleModeKeydown($event, index)"
-          @keydown.left.prevent="handleModeKeydown($event, index)"
+          :value="operation.id"
         >
-          <i class="bi" :class="operation.icon" aria-hidden="true"></i>
-          <span>{{ operation.label }}</span>
-        </button>
-      </div>
+          <button
+            class="mode-option"
+            :class="{ 'is-active': state.mode === operation.id }"
+            type="button"
+            @click="controls.activate(operation.id)"
+          >
+            <i class="bi" :class="operation.icon" aria-hidden="true"></i>
+            <span>{{ operation.label }}</span>
+          </button>
+        </AppRadio>
+      </AppRadioGroup>
 
       <div class="result-block">
         <span>测量结果</span>
@@ -145,7 +127,7 @@ function getSourceLabel(source: "scene" | "terrain") {
           type="button"
           :disabled="state.points.length === 0"
           title="当前没有可撤销的测量点"
-          @click="controls.undoMeasurementPoint()"
+          @click="controls.undoPoint()"
         >
           <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>
           撤销
@@ -155,7 +137,7 @@ function getSourceLabel(source: "scene" | "terrain") {
           type="button"
           :disabled="state.points.length === 0"
           title="当前没有可清空的测量点"
-          @click="controls.clearMeasurement()"
+          @click="controls.clear()"
         >
           <i class="bi bi-trash3" aria-hidden="true"></i>
           清空
@@ -192,12 +174,12 @@ function getSourceLabel(source: "scene" | "terrain") {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  min-height: 34px;
-  padding: 7px 8px;
-  border: 1px solid rgba(79, 151, 255, 0.26);
-  border-radius: 4px;
+  min-height: var(--control-md);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid color-mix(in srgb, var(--neutral) 26%, transparent);
+  border-radius: var(--radius-sm);
   color: var(--text-secondary);
-  background: rgba(19, 40, 72, 0.38);
+  background: color-mix(in srgb, var(--neutral-soft) 70%, transparent);
   text-align: left;
   transition:
     color 160ms ease,
@@ -206,15 +188,15 @@ function getSourceLabel(source: "scene" | "terrain") {
 }
 
 .mode-option > .bi {
-  font-size: 15px;
+  font-size: var(--text-lg);
   line-height: 1;
 }
 
 .mode-option > span {
   overflow: hidden;
   padding-left: 7px;
-  font-size: 12px;
-  line-height: 1.2;
+  font-size: var(--text-sm);
+  line-height: var(--leading-tight);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -222,58 +204,42 @@ function getSourceLabel(source: "scene" | "terrain") {
 .mode-option:hover,
 .mode-option:focus-visible,
 .mode-option.is-active {
-  border-color: rgba(72, 229, 255, 0.72);
-  color: var(--cyan);
-  background: rgba(16, 47, 83, 0.86);
-}
-
-.mode-option:focus-visible {
-  outline: 2px solid rgba(72, 229, 255, 0.42);
-  outline-offset: 2px;
+  border-color: color-mix(in srgb, var(--accent) 72%, transparent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--neutral-deep) 86%, transparent);
 }
 
 .result-block {
   display: grid;
   gap: 4px;
   padding: 9px 10px;
-  border: 1px solid rgba(79, 151, 255, 0.24);
-  border-radius: 4px;
-  background: rgba(7, 20, 42, 0.56);
+  border: 1px solid color-mix(in srgb, var(--neutral) 24%, transparent);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-panel) 56%, transparent);
 }
 
 .result-block > span,
 .result-block > small {
   color: var(--text-muted);
-  font-size: 11px;
-  line-height: 1.2;
+  font-size: var(--text-xs);
+  line-height: var(--leading-tight);
 }
 
 .result-block > strong {
-  color: var(--cyan);
-  font-family: ui-monospace, Consolas, monospace;
-  font-size: 19px;
-  font-weight: 650;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-bold);
   line-height: 1;
 }
 
 .result-block > small.is-error {
-  color: var(--rose);
+  color: var(--danger);
 }
 
 .point-list {
   max-height: 148px;
   overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(72, 229, 255, 0.45) transparent;
-}
-
-.point-list::-webkit-scrollbar {
-  width: 4px;
-}
-
-.point-list::-webkit-scrollbar-thumb {
-  border-radius: 2px;
-  background: rgba(72, 229, 255, 0.45);
 }
 
 .point-list > dl {
@@ -282,7 +248,7 @@ function getSourceLabel(source: "scene" | "terrain") {
   gap: 8px;
   align-items: center;
   padding: 6px 0;
-  border-bottom: 1px solid rgba(79, 151, 255, 0.14);
+  border-bottom: 1px solid color-mix(in srgb, var(--neutral) 14%, transparent);
 }
 
 .point-list > dl:last-child {
@@ -294,17 +260,17 @@ function getSourceLabel(source: "scene" | "terrain") {
   align-items: center;
   justify-content: center;
   height: 21px;
-  border: 1px solid rgba(72, 229, 255, 0.3);
-  border-radius: 3px;
-  color: var(--cyan);
-  font-family: ui-monospace, Consolas, monospace;
-  font-size: 11px;
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius: var(--radius-xs);
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
 }
 
 .point-list dt em {
   margin-left: 4px;
-  color: var(--amber);
-  font-size: 10px;
+  color: var(--warning);
+  font-size: var(--text-2xs);
   font-style: normal;
 }
 
@@ -318,19 +284,19 @@ function getSourceLabel(source: "scene" | "terrain") {
 .point-list dd > span {
   overflow: hidden;
   color: var(--text-secondary);
-  font-family: ui-monospace, Consolas, monospace;
-  font-size: 11px;
-  line-height: 1.2;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-tight);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .empty-points {
   padding: 12px 0;
-  border: 1px dashed rgba(79, 151, 255, 0.24);
-  border-radius: 4px;
+  border: 1px dashed color-mix(in srgb, var(--neutral) 24%, transparent);
+  border-radius: var(--radius-sm);
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--text-sm);
   text-align: center;
 }
 
@@ -345,13 +311,13 @@ function getSourceLabel(source: "scene" | "terrain") {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-height: 32px;
-  padding: 0 8px;
-  border: 1px solid rgba(79, 151, 255, 0.32);
-  border-radius: 4px;
+  min-height: var(--control-md);
+  padding: 0 var(--space-4);
+  border: 1px solid color-mix(in srgb, var(--neutral) 32%, transparent);
+  border-radius: var(--radius-sm);
   color: var(--text-secondary);
-  background: rgba(19, 40, 72, 0.44);
-  font-size: 12px;
+  background: color-mix(in srgb, var(--neutral-soft) 80%, transparent);
+  font-size: var(--text-sm);
   transition:
     color 160ms ease,
     border-color 160ms ease,
@@ -360,14 +326,9 @@ function getSourceLabel(source: "scene" | "terrain") {
 
 .action-button:hover,
 .action-button:focus-visible {
-  border-color: rgba(72, 229, 255, 0.72);
-  color: var(--cyan);
-  background: rgba(16, 47, 83, 0.86);
-}
-
-.action-button:focus-visible {
-  outline: 2px solid rgba(72, 229, 255, 0.42);
-  outline-offset: 2px;
+  border-color: color-mix(in srgb, var(--accent) 72%, transparent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--neutral-deep) 86%, transparent);
 }
 
 .action-button:disabled {
@@ -377,8 +338,8 @@ function getSourceLabel(source: "scene" | "terrain") {
 
 .action-button:disabled:hover,
 .action-button:disabled:focus-visible {
-  border-color: rgba(79, 151, 255, 0.32);
+  border-color: color-mix(in srgb, var(--neutral) 32%, transparent);
   color: var(--text-secondary);
-  background: rgba(19, 40, 72, 0.44);
+  background: color-mix(in srgb, var(--neutral-soft) 44%, transparent);
 }
 </style>

@@ -1,0 +1,82 @@
+[
+  {
+    "protocol": "tianditu",
+    "label": "天地图",
+    "resourceKind": "imagery",
+    "entryCandidates": [],
+    "profileIds": ["tianditu-key-env"],
+    "implementsDiscovery": true
+  },
+  {
+    "protocol": "terrain-quantized-mesh",
+    "label": "DEM 地形",
+    "resourceKind": "terrain",
+    "entryCandidates": ["layer.json", "meta.json", "dataset.json"],
+    "profileIds": ["quantized-mesh-layer-json"],
+    "implementsDiscovery": true
+  },
+  {
+    "protocol": "xyz",
+    "label": "XYZ 瓦片",
+    "resourceKind": "imagery",
+    "entryCandidates": ["stacta.json", "dataset.json"],
+    "profileIds": ["gdal-raster-tile-stacta"],
+    "implementsDiscovery": true
+  },
+  {
+    "protocol": "wms",
+    "label": "WMS",
+    "resourceKind": "imagery",
+    "entryCandidates": ["GetCapabilities", "dataset.json"],
+    "profileIds": [],
+    "implementsDiscovery": false
+  },
+  {
+    "protocol": "wmts",
+    "label": "WMTS",
+    "resourceKind": "imagery",
+    "entryCandidates": ["GetCapabilities", "dataset.json"],
+    "profileIds": [],
+    "implementsDiscovery": false
+  },
+  {
+    "protocol": "wfs",
+    "label": "WFS",
+    "resourceKind": "vector",
+    "entryCandidates": ["GetCapabilities", "dataset.json"],
+    "profileIds": [],
+    "implementsDiscovery": false
+  },
+  {
+    "protocol": "geojson",
+    "label": "GeoJSON",
+    "resourceKind": "vector",
+    "entryCandidates": ["dataset.json"],
+    "profileIds": [],
+    "implementsDiscovery": false
+  },
+  {
+    "protocol": "3d-tiles",
+    "label": "3D Tiles",
+    "resourceKind": "tileset",
+    "entryCandidates": ["tileset.json", "dataset.json"],
+    "profileIds": [
+      "gridmaster-box-transform",
+      "osgblab-sphere-ecef",
+      "three-d-tiles-region",
+      "three-d-tiles-box",
+      "three-d-tiles-box-transform",
+      "three-d-tiles-sphere",
+      "three-d-tiles-sphere-transform"
+    ],
+    "implementsDiscovery": true
+  },
+  {
+    "protocol": "gltf",
+    "label": "glTF",
+    "resourceKind": "model",
+    "entryCandidates": ["dataset.json"],
+    "profileIds": [],
+    "implementsDiscovery": false
+  }
+]

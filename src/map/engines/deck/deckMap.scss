@@ -14,20 +14,20 @@
   bottom: 8px;
   z-index: 1;
   pointer-events: none;
-  color: rgba(28, 36, 46, 0.9);
+  color: var(--surface-0);
   font-size: 11px;
-  text-shadow: 0 1px 3px rgba(255, 255, 255, 0.75);
+  text-shadow: 0 1px 3px color-mix(in srgb, var(--color-text-primary) 75%, transparent);
 }
 
 .deck-tooltip {
   min-width: 132px;
   padding: 8px 10px;
   overflow: hidden;
-  border: 1px solid rgba(72, 229, 255, 0.34);
+  border: 1px solid color-mix(in srgb, var(--accent) 34%, transparent);
   border-radius: 4px;
-  background: rgba(7, 20, 42, 0.92);
-  box-shadow: 0 12px 30px rgba(1, 8, 20, 0.58);
-  color: #dcecff;
+  background: var(--surface-3);
+  box-shadow: var(--shadow-3);
+  color: var(--text-primary);
   font-family: var(--font-interface);
   font-size: 12px;
   text-align: left;
@@ -35,13 +35,13 @@
 
 .deck-tooltip strong {
   display: block;
-  color: #e9f5ff;
+  color: var(--text-primary);
   font-size: 13px;
 }
 
 .deck-tooltip span {
   display: block;
   margin-top: 3px;
-  color: #9db8dc;
+  color: var(--text-muted);
   font-family: var(--font-data);
 }

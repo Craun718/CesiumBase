@@ -161,7 +161,12 @@ function handleKeydown(event: KeyboardEvent) {
     >
       <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>
     </button>
-    <span class="compass-heading" aria-hidden="true">{{ headingLabel }}</span>
+    <span
+      class="compass-heading"
+      role="status"
+      :aria-label="`当前方位 ${Math.round(normalizedHeading)} 度`"
+      >{{ headingLabel }}</span
+    >
   </div>
 </template>
 
@@ -184,15 +189,19 @@ function handleKeydown(event: KeyboardEvent) {
   width: 72px;
   height: 72px;
   padding: 0;
-  border: 1px solid rgba(72, 229, 255, 0.48);
+  border: 1px solid color-mix(in srgb, var(--accent) 48%, transparent);
   border-radius: 50%;
   color: var(--text-secondary);
   background:
-    radial-gradient(circle at center, rgba(16, 47, 83, 0.28), rgba(3, 9, 19, 0.9)),
-    rgba(7, 20, 42, 0.88);
+    radial-gradient(
+      circle at center,
+      color-mix(in srgb, var(--neutral-deep) 28%, transparent),
+      color-mix(in srgb, var(--color-abyss) 90%, transparent)
+    ),
+    color-mix(in srgb, var(--color-panel) 88%, transparent);
   box-shadow:
-    0 10px 28px rgba(1, 8, 20, 0.5),
-    inset 0 0 18px rgba(72, 229, 255, 0.12);
+    0 10px 28px color-mix(in srgb, var(--color-abyss) 50%, transparent),
+    inset 0 0 18px color-mix(in srgb, var(--accent) 12%, transparent);
   cursor: grab;
   pointer-events: auto;
   touch-action: none;
@@ -204,15 +213,20 @@ function handleKeydown(event: KeyboardEvent) {
 .compass-dial:hover,
 .compass-dial:focus-visible,
 .compass-dial.is-dragging {
-  border-color: rgba(72, 229, 255, 0.9);
+  border-color: color-mix(in srgb, var(--accent) 90%, transparent);
   box-shadow:
-    0 10px 30px rgba(1, 8, 20, 0.58),
-    inset 0 0 22px rgba(72, 229, 255, 0.2);
+    0 10px 30px color-mix(in srgb, var(--color-abyss) 58%, transparent),
+    inset 0 0 22px color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
+/* 表盘自带投影，会覆盖 global.css 里 :focus-visible 的 box-shadow，
+   而它正是压在最亮底图上的那个元素，必须自己把衬托层补回来。 */
 .compass-dial:focus-visible {
-  outline: 2px solid rgba(72, 229, 255, 0.42);
   outline-offset: 3px;
+  box-shadow:
+    var(--ring-shadow),
+    0 10px 30px color-mix(in srgb, var(--color-abyss) 58%, transparent),
+    inset 0 0 22px color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
 .compass-dial.is-dragging {
@@ -222,7 +236,7 @@ function handleKeydown(event: KeyboardEvent) {
 .compass-ring {
   position: absolute;
   inset: 9px;
-  border: 1px dashed rgba(103, 139, 191, 0.44);
+  border: 1px dashed color-mix(in srgb, var(--text-secondary) 44%, transparent);
   border-radius: 50%;
 }
 
@@ -230,7 +244,7 @@ function handleKeydown(event: KeyboardEvent) {
   position: absolute;
   width: 1px;
   height: 6px;
-  background: rgba(103, 139, 191, 0.62);
+  background: color-mix(in srgb, var(--text-secondary) 62%, transparent);
 }
 
 .compass-ring i:nth-child(1) {
@@ -269,18 +283,18 @@ function handleKeydown(event: KeyboardEvent) {
 .needle-arrow {
   width: 16px;
   height: 29px;
-  color: #fff;
+  color: var(--text-max);
   background: currentColor;
   clip-path: polygon(50% 0%, 100% 65%, 50% 48%, 0% 65%);
-  filter: drop-shadow(0 1px 3px rgba(1, 8, 20, 0.65));
+  filter: drop-shadow(0 1px 3px color-mix(in srgb, var(--color-abyss) 65%, transparent));
 }
 
 .north-needle small {
   margin-top: 1px;
   color: var(--text-primary);
-  font-family: ui-monospace, Consolas, monospace;
-  font-size: 10px;
-  font-weight: 700;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-bold);
   line-height: 1;
 }
 
@@ -292,42 +306,35 @@ function handleKeydown(event: KeyboardEvent) {
 .north-reset {
   display: grid;
   place-items: center;
-  width: 26px;
-  height: 26px;
+  width: var(--control-md);
+  height: var(--control-md);
   padding: 0;
-  border: 1px solid rgba(79, 151, 255, 0.36);
+  border: 1px solid color-mix(in srgb, var(--neutral) 36%, transparent);
   border-radius: 50%;
   color: var(--text-secondary);
-  background: rgba(7, 20, 42, 0.9);
-  transition:
-    color 160ms ease,
-    border-color 160ms ease,
-    background-color 160ms ease;
+  background: color-mix(in srgb, var(--surface-1) 90%, transparent);
 }
 
 .north-reset > .bi {
-  font-size: 13px;
+  font-size: var(--text-md);
   line-height: 1;
 }
 
 .north-reset:hover,
 .north-reset:focus-visible {
-  border-color: rgba(72, 229, 255, 0.78);
-  color: var(--cyan);
-  background: rgba(16, 47, 83, 0.94);
+  border-color: color-mix(in srgb, var(--accent) 78%, transparent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--neutral) 32%, transparent);
 }
 
-.north-reset:focus-visible {
-  outline: 2px solid rgba(72, 229, 255, 0.42);
-  outline-offset: 2px;
-}
+/* 焦点环由 global.css 统一提供，小尺寸按钮自动应用 --ring-offset-tight */
 
 .north-reset.is-resetting {
-  animation: reset-pulse 500ms ease;
+  animation: reset-pulse var(--motion-duration-medium) var(--motion-ease-standard);
 }
 
 .north-reset.is-resetting > .bi {
-  animation: reset-spin 500ms cubic-bezier(0.32, 0.72, 0.25, 1);
+  animation: reset-spin var(--motion-duration-medium) var(--motion-ease-emphasized);
 }
 
 @keyframes reset-pulse {
@@ -356,13 +363,13 @@ function handleKeydown(event: KeyboardEvent) {
 
 .compass-heading {
   padding: 3px 6px;
-  border: 1px solid rgba(79, 151, 255, 0.24);
-  border-radius: 3px;
+  border: 1px solid color-mix(in srgb, var(--neutral) 24%, transparent);
+  border-radius: var(--radius-xs);
   color: var(--text-secondary);
-  font-family: ui-monospace, Consolas, monospace;
-  font-size: 11px;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
   line-height: 1;
-  background: rgba(7, 20, 42, 0.78);
+  background: color-mix(in srgb, var(--color-panel) 78%, transparent);
 }
 
 .map-compass.is-disabled .compass-dial {

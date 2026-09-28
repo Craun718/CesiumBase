@@ -2,10 +2,29 @@
 import { onBeforeUnmount, onMounted, ref } from "vue"
 import { useMapController } from "../../map"
 import ErrorBoundary from "../ErrorBoundary.vue"
-import MapViewport from "../MapViewport.vue"
-import type { MapControls } from "./mapControls"
+import SplitCompareStage from "./SplitCompareStage.vue"
+import SwipeCompareDivider from "./SwipeCompareDivider.vue"
+import type { CompareControls } from "./composables/useCompareControls"
 
-defineProps<{ controls: MapControls }>()
+const props = defineProps<{
+  compareControls: CompareControls
+  compassVisible: boolean
+  northLocked: boolean
+  viewCenterVisible: boolean
+  swipeCompareActive: boolean
+  splitCompareActive: boolean
+  swipeSplitPosition: number
+  swipeDividerVisible: boolean
+}>()
+
+const emit = defineEmits<{
+  "update:swipeSplitPosition": [position: number]
+}>()
+
+/** 更新卷帘分割位置。 */
+function updateSwipeSplitPosition(position: number) {
+  emit("update:swipeSplitPosition", position)
+}
 
 const mapController = useMapController()
 const flightPreparing = ref(mapController.getFlightPlaybackState().status === "preparing")
@@ -26,15 +45,20 @@ onBeforeUnmount(() => {
 <template>
   <div class="map-stage">
     <ErrorBoundary>
-      <MapViewport
-        :compass-visible="controls.compassVisible"
-        :north-locked="controls.northLocked"
-        :view-center-visible="controls.viewCenterVisible"
+      <SplitCompareStage
+        :active="splitCompareActive"
+        :controls="compareControls"
+        :compass-visible="compassVisible"
+        :north-locked="northLocked"
+        :view-center-visible="viewCenterVisible"
       />
     </ErrorBoundary>
-    <span class="stage-label" aria-hidden="true">
-      {{ controls.sceneMode === "3d" ? "三维态势视图" : "二维态势视图" }}
-    </span>
+    <SwipeCompareDivider
+      v-if="props.swipeCompareActive"
+      :position="props.swipeSplitPosition"
+      :visible="props.swipeDividerVisible"
+      @update:model-value="updateSwipeSplitPosition"
+    />
     <div v-if="flightPreparing" class="flight-preparing" role="status" aria-live="polite">
       <i class="bi bi-arrow-repeat" aria-hidden="true"></i>
       <span>正在采样地形并准备漫游</span>
@@ -52,20 +76,6 @@ onBeforeUnmount(() => {
   pointer-events: auto;
 }
 
-.stage-label {
-  position: absolute;
-  top: 12px;
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 5px 12px;
-  border: 1px solid rgba(72, 229, 255, 0.28);
-  border-radius: 3px;
-  color: var(--text-secondary);
-  font-size: 12px;
-  white-space: nowrap;
-  background: rgba(7, 20, 42, 0.62);
-}
-
 .flight-preparing {
   position: absolute;
   top: 50%;
@@ -77,9 +87,9 @@ onBeforeUnmount(() => {
   max-width: calc(100% - 32px);
   padding: 9px 14px;
   border: 1px solid var(--panel-border);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: var(--text-primary);
-  font-size: 12px;
+  font-size: var(--text-sm);
   white-space: nowrap;
   background: var(--panel-bg);
   box-shadow: var(--panel-shadow);
@@ -88,8 +98,8 @@ onBeforeUnmount(() => {
 }
 
 .flight-preparing > i {
-  color: var(--cyan);
-  font-size: 16px;
+  color: var(--accent);
+  font-size: var(--icon-md);
   animation: flight-spin 1s linear infinite;
 }
 

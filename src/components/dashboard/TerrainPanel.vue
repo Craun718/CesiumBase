@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import RailPanel from "./RailPanel.vue"
-import type { MapControls } from "./mapControls"
+import type { SceneControls } from "./composables/useSceneControls"
 
 defineProps<{
-  controls: MapControls
+  controls: SceneControls
   placement: "left" | "left-third"
 }>()
 </script>
@@ -11,7 +11,7 @@ defineProps<{
 <template>
   <RailPanel
     id="terrain-scale-window"
-    class="terrain-scale-window"
+    class="terrain-scale-window window-compact"
     :placement="placement"
     title="地形起伏倍率"
     tag="TERRAIN"
@@ -28,7 +28,7 @@ defineProps<{
         max="5"
         step="0.1"
         aria-label="地形起伏倍率"
-        @input="controls.handleTerrainScaleInput($event)"
+        @input="controls.setTerrainScaleFromEvent($event)"
       />
     </div>
   </RailPanel>
@@ -36,11 +36,6 @@ defineProps<{
 
 <style scoped lang="scss">
 .terrain-scale-window {
-  --window-padding: 10px;
-  --window-head-padding: 8px;
-  --window-title-size: 13px;
-  --window-tag-size: 9px;
-  --window-close-size: 20px;
   --rail-panel-width: min(220px, calc(100vw - 160px));
   min-width: 0;
 }
@@ -52,10 +47,10 @@ defineProps<{
 }
 
 .terrain-scale-body > strong {
-  color: var(--cyan);
-  font-family: ui-monospace, Consolas, monospace;
-  font-size: 18px;
-  font-weight: 600;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-semibold);
   line-height: 1;
 }
 
@@ -63,6 +58,6 @@ defineProps<{
   width: 100%;
   height: 16px;
   margin: 0;
-  accent-color: var(--cyan);
+  accent-color: var(--accent);
 }
 </style>

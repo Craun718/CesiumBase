@@ -2,6 +2,9 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue"
 import {
   createFlightRoute,
+  DEFAULT_FLIGHT_SPEED,
+  MAX_FLIGHT_SPEED,
+  MIN_FLIGHT_SPEED,
   normalizeFlightRoute,
   parseFlightRouteGeoJson,
   serializeFlightRouteGeoJson,
@@ -9,6 +12,8 @@ import {
   type FlightPlaybackState,
   type FlightRoute,
 } from "../map"
+import AppRadio from "./base/AppRadio.vue"
+import AppRadioGroup from "./base/AppRadioGroup.vue"
 import { useLocalStore } from "../stores"
 
 const mapController = useMapController()
@@ -95,6 +100,16 @@ const remainingSeconds = computed(() => {
 })
 
 const progressSliderValue = computed(() => Math.round(playback.value.progress * 1000))
+
+/** 飞行速度显示值：空闲期取航线持久值，播放期取引擎运行时值。 */
+const displaySpeed = computed(() => {
+  if (playback.value.status === "idle") {
+    return selectedRoute.value?.speed ?? DEFAULT_FLIGHT_SPEED
+  }
+  return playback.value.speed || DEFAULT_FLIGHT_SPEED
+})
+const speedInputValue = computed(() => String(Math.round(displaySpeed.value)))
+const speedSliderValue = computed(() => Math.round(displaySpeed.value))
 watch(playbackActive, (active) => {
   if (active) {
     confirmingDeleteId.value = null
@@ -154,6 +169,15 @@ function toggleLoop() {
   if (playback.value.status !== "idle") {
     mapController.updateFlightPlayback({ loop })
   }
+}
+
+/** 切换飞行期视角跟随模式。 */
+function toggleFollowRoute() {
+  if (playback.value.status === "idle") return
+
+  const next = !playback.value.followRoute
+  mapController.updateFlightPlayback({ followRoute: next })
+  showFeedback(next ? "已开启视角跟随" : "已切换为自由视角")
 }
 
 /** 二次确认后删除本地航线。 */
@@ -263,6 +287,33 @@ function seekPlayback(event: Event) {
   if (!(event.target instanceof HTMLInputElement) || !canSeek.value) return
 
   mapController.seekFlight(Number(event.target.value) / 1000)
+}
+
+/** 应用新的飞行速度值：双写（持久化航线 + 实时同步引擎）。 */
+function applySpeedValue(value: number) {
+  const route = selectedRoute.value
+  if (!route) return
+
+  const normalized = normalizeFlightRoute({ ...route, speed: value })
+  updateSelectedRoute({ speed: normalized.speed })
+
+  if (playback.value.status !== "idle") {
+    mapController.updateFlightPlayback({ speed: normalized.speed })
+  }
+}
+
+function applySpeedNumber(event: Event) {
+  const input = event.target
+  if (!(input instanceof HTMLInputElement)) return
+  const value = Number(input.value)
+  if (!Number.isFinite(value)) return
+  applySpeedValue(value)
+}
+
+function applySpeedRange(event: Event) {
+  const input = event.target
+  if (!(input instanceof HTMLInputElement)) return
+  applySpeedValue(Number(input.value))
 }
 
 /** 打开航线导入文件选择器。 */
@@ -388,22 +439,29 @@ onBeforeUnmount(() => {
       </div>
 
       <div v-if="localStore.flightRoutes.length === 0" class="empty">暂无本地航线</div>
-      <ul v-else class="route-list" role="radiogroup" aria-label="航线列表">
+      <AppRadioGroup
+        v-else
+        as="ul"
+        class="route-list"
+        aria-label="航线列表"
+        orientation="vertical"
+        :model-value="selectedRouteId"
+      >
         <li v-for="route in localStore.flightRoutes" :key="route.id">
           <div class="route-item">
-            <button
-              type="button"
-              role="radio"
-              class="route-select"
-              :aria-checked="route.id === selectedRouteId"
-              :class="{ 'is-active': route.id === selectedRouteId }"
-              :disabled="playbackActive"
-              :title="playbackActive ? '停止播放后才能切换航线' : undefined"
-              @click="selectRoute(route)"
-            >
-              <span class="route-name">{{ route.name }}</span>
-              <span class="route-meta">{{ route.waypoints.length }} 航点</span>
-            </button>
+            <AppRadio :value="route.id" :disabled="playbackActive">
+              <button
+                type="button"
+                class="route-select"
+                :class="{ 'is-active': route.id === selectedRouteId }"
+                :disabled="playbackActive"
+                :title="playbackActive ? '停止播放后才能切换航线' : undefined"
+                @click="selectRoute(route)"
+              >
+                <span class="route-name">{{ route.name }}</span>
+                <span class="route-meta">{{ route.waypoints.length }} 航点</span>
+              </button>
+            </AppRadio>
             <button
               type="button"
               class="route-delete danger"
@@ -418,7 +476,7 @@ onBeforeUnmount(() => {
             </button>
           </div>
         </li>
-      </ul>
+      </AppRadioGroup>
     </section>
 
     <section class="block" aria-label="航线参数">
@@ -427,12 +485,14 @@ onBeforeUnmount(() => {
         <span>{{ selectedRouteName }}</span>
       </div>
 
+      <!-- 参数面板是 DashboardRightRail 里的同级 RailPanel，收起时整个被 v-if 摘掉；
+           此时 aria-controls 会指向不存在的 id，所以只在展开时声明这条关系 -->
       <button
         type="button"
         class="wide-button settings-toggle"
         :class="{ 'is-active': settingsOpen }"
         :aria-expanded="settingsOpen"
-        aria-controls="flight-route-settings-panel"
+        :aria-controls="settingsOpen ? 'flight-route-settings-panel' : undefined"
         :title="settingsOpen ? '收起航线参数面板' : '展开航线参数面板'"
         @click="emit('toggleSettings')"
       >
@@ -503,6 +563,48 @@ onBeforeUnmount(() => {
           <i class="bi bi-arrow-repeat" aria-hidden="true"></i>
           循环
         </button>
+        <button
+          type="button"
+          :class="{ 'is-active': playback.followRoute }"
+          :aria-pressed="playback.followRoute"
+          :disabled="playbackControlsDisabled || playback.status === 'idle'"
+          :title="playback.followRoute ? '视角跟随航线行进方向' : '切换为自由视角'"
+          @click="toggleFollowRoute"
+        >
+          <i class="bi bi-compass" aria-hidden="true"></i>
+          跟随
+        </button>
+      </div>
+
+      <div class="parameter" aria-label="飞行速度">
+        <div class="parameter-head">
+          <span>飞行速度</span>
+          <input
+            :value="speedInputValue"
+            type="number"
+            :min="MIN_FLIGHT_SPEED"
+            :max="MAX_FLIGHT_SPEED"
+            step="1"
+            aria-label="飞行速度，单位米每秒"
+            :disabled="!selectedRoute"
+            @change="applySpeedNumber"
+          />
+        </div>
+        <input
+          :value="speedSliderValue"
+          type="range"
+          :min="MIN_FLIGHT_SPEED"
+          :max="MAX_FLIGHT_SPEED"
+          step="1"
+          aria-label="飞行速度滑杆，单位米每秒"
+          :disabled="!selectedRoute"
+          @input="applySpeedRange"
+        />
+        <p class="parameter-meta">
+          <span>{{ MIN_FLIGHT_SPEED }}m/s</span>
+          <span>当前 {{ speedInputValue }} m/s</span>
+          <span>{{ MAX_FLIGHT_SPEED }}m/s</span>
+        </p>
       </div>
 
       <div class="playback-meta">
@@ -528,11 +630,13 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped lang="scss">
+@use "../styles/fields" as fields;
+
 .flight-tour {
   display: grid;
   gap: 12px;
   min-width: 0;
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 
 .block {
@@ -557,14 +661,14 @@ onBeforeUnmount(() => {
   h3 {
     margin: 0;
     color: var(--text-primary);
-    font-size: 12px;
-    font-weight: 700;
+    font-size: var(--text-sm);
+    font-weight: var(--weight-bold);
   }
 
   > span {
     overflow: hidden;
     color: var(--text-muted);
-    font-size: 11px;
+    font-size: var(--text-xs);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -578,7 +682,7 @@ onBeforeUnmount(() => {
 }
 
 .playback-actions {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
 .settings-toggle {
@@ -599,58 +703,55 @@ button {
   justify-content: center;
   gap: 4px;
   min-width: 0;
-  padding: 7px 6px;
+  min-height: var(--control-md);
+  padding: var(--space-2) var(--space-4);
   border: 1px solid var(--panel-inner-line);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: var(--text-secondary);
-  font-size: 11px;
-  line-height: 1.2;
-  background: rgba(7, 20, 42, 0.55);
+  font-size: var(--text-xs);
+  line-height: var(--leading-tight);
+  background: color-mix(in srgb, var(--color-panel) 55%, transparent);
   cursor: pointer;
-  transition:
-    border-color 140ms ease,
-    color 140ms ease,
-    background 140ms ease;
 }
 
 button:hover:not(:disabled),
 button:focus-visible {
   border-color: var(--panel-border);
   color: var(--text-primary);
-  outline: none;
 }
 
 button:focus-visible {
-  border-color: rgba(72, 229, 255, 0.6);
-  box-shadow: 0 0 0 2px rgba(72, 229, 255, 0.22);
+  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+  outline: 2px solid color-mix(in srgb, var(--accent) 60%, transparent);
+  outline-offset: var(--ring-offset);
 }
 
 button:disabled {
   border-color: var(--panel-inner-line);
   color: var(--text-muted);
-  background: rgba(7, 20, 42, 0.32);
+  background: color-mix(in srgb, var(--color-panel) 32%, transparent);
   cursor: not-allowed;
 }
 
 button.is-active {
-  border-color: rgba(72, 229, 255, 0.58);
-  color: var(--cyan);
-  background: rgba(72, 229, 255, 0.09);
+  border-color: color-mix(in srgb, var(--accent) 58%, transparent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
 }
 
 button.danger {
-  color: var(--amber);
+  color: var(--warning);
 }
 
 button.danger:hover:not(:disabled) {
-  border-color: rgba(255, 182, 72, 0.58);
-  background: rgba(255, 182, 72, 0.08);
+  border-color: color-mix(in srgb, var(--warning) 58%, transparent);
+  background: color-mix(in srgb, var(--warning) 8%, transparent);
 }
 
 .empty {
   padding: 10px;
   border: 1px dashed var(--panel-inner-line);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: var(--text-muted);
   text-align: center;
 }
@@ -660,13 +761,9 @@ button.danger:hover:not(:disabled) {
   max-height: 150px;
   gap: 5px;
   overflow-y: auto;
-  padding-right: 2px;
-}
-
-.route-list {
-  list-style: none;
+  padding: 0 2px 0 0;
   margin: 0;
-  padding: 0;
+  list-style: none;
 }
 
 .route-item {
@@ -687,7 +784,7 @@ button.danger:hover:not(:disabled) {
 
 .route-delete {
   width: 100%;
-  padding: 7px 4px;
+  padding: var(--space-2) var(--space-3);
   white-space: nowrap;
 }
 
@@ -702,53 +799,29 @@ button.danger:hover:not(:disabled) {
   flex: 1 1 auto;
   min-width: 0;
   color: inherit;
-  font-weight: 650;
+  font-weight: var(--weight-semibold);
 }
 
 .route-meta {
   flex: none;
   color: var(--text-muted);
-  font-size: 10px;
+  font-size: var(--text-2xs);
 }
 
-input {
-  width: 100%;
-  min-width: 0;
-  padding: 6px 7px;
-  border: 1px solid var(--panel-inner-line);
-  border-radius: 4px;
-  color: var(--text-primary);
-  font-family: var(--font-data);
-  font-size: 11px;
-  background: rgba(7, 20, 42, 0.58);
-  outline: none;
-  transition: border-color 140ms ease;
-}
-
-input[type="range"] {
-  height: 16px;
-  padding: 0;
-  accent-color: var(--cyan);
-}
-
-input:focus {
-  border-color: rgba(72, 229, 255, 0.58);
-}
-
-input:disabled {
-  color: var(--text-muted);
-  cursor: not-allowed;
-}
+/* 面板字段统一走玻璃档（见 _fields.scss）：本面板浮在裸地图上，底色必须半透明。
+   数值输入自动走等宽分支；滑块不吃这套皮肤，只有高度与内边距来自同一处。
+   导入用的 `type="file"` 已被排除链挡在外面，继续由 .visually-hidden 隐藏。 */
+@include fields.glass-controls;
 
 .status {
-  font-family: var(--font-data);
+  font-family: var(--font-mono);
 
   &.playing {
-    color: var(--cyan);
+    color: var(--accent);
   }
 
   &.completed {
-    color: var(--blue);
+    color: var(--text-secondary);
   }
 }
 
@@ -757,22 +830,52 @@ input:disabled {
   justify-content: space-between;
   gap: 8px;
   color: var(--text-muted);
-  font-family: var(--font-data);
-  font-size: 10px;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+}
+
+.parameter {
+  display: grid;
+  gap: 5px;
+}
+
+.parameter-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 86px;
+  gap: 6px;
+  align-items: center;
+
+  > span {
+    overflow: hidden;
+    color: var(--text-secondary);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.parameter-meta {
+  display: flex;
+  justify-content: space-between;
+  margin: 0;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
 }
 
 .feedback {
   margin: 0;
   padding: 7px 8px;
   border: 1px solid var(--panel-inner-line);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: var(--text-secondary);
-  font-size: 11px;
-  background: rgba(7, 20, 42, 0.5);
+  font-size: var(--text-xs);
+  background: color-mix(in srgb, var(--color-panel) 50%, transparent);
 
   &.error {
-    border-color: rgba(255, 182, 72, 0.45);
-    color: var(--amber);
+    border-color: color-mix(in srgb, var(--warning) 45%, transparent);
+    color: var(--warning);
   }
 }
 
@@ -787,7 +890,7 @@ input:disabled {
 
 @media (max-width: 520px) {
   .playback-actions {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 </style>

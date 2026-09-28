@@ -1,102 +1,78 @@
 <template>
   <header class="topbar">
     <div class="brand">
-      <span class="brand-mark" aria-hidden="true">
-        <i class="bi bi-globe2"></i>
-      </span>
-      <div>
-        <p>MAP ENGINE</p>
-        <h1>数字态势监控中心</h1>
-      </div>
-    </div>
-
-    <div class="system-status">
-      <span class="status-pill is-online">运行正常</span>
-      <span class="status-pill">演示数据</span>
+      <img class="brand-logo" src="/logo.svg" alt="" aria-hidden="true" />
+      <h1>数字孪生三维可视化平台</h1>
     </div>
   </header>
 </template>
 
 <style scoped lang="scss">
 .topbar {
+  position: relative;
   border: 0;
   border-bottom: 1px solid var(--panel-border);
-  background: #0a2540;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 16%, transparent), transparent 46%),
+    linear-gradient(
+      180deg,
+      var(--surface-chrome-soft),
+      color-mix(in srgb, var(--surface-0) 98%, transparent)
+    );
   box-shadow: none;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   gap: 20px;
   min-height: 74px;
   padding: 0 var(--edge-gutter, 18px);
+  overflow: hidden;
+}
+
+.topbar::after {
+  position: absolute;
+  inset: auto 0 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in srgb, var(--accent) 78%, transparent) 50%,
+    transparent 100%
+  );
+  content: "";
 }
 
 .brand {
-  display: flex;
-  align-items: center;
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  text-align: center;
+  max-width: calc(100% - 36px);
   min-width: 0;
-  gap: 14px;
 }
 
-.brand-mark {
-  flex: 0 0 auto;
-  display: grid;
-  place-items: center;
-  width: 38px;
-  height: 38px;
-  border: 1px solid rgba(72, 229, 255, 0.72);
-  border-radius: 4px;
-}
-
-.brand-mark > .bi {
-  color: var(--cyan);
-  font-size: 22px;
-  line-height: 1;
-}
-
-.brand p {
-  margin: 0;
-  color: var(--cyan);
-  font-size: 10px;
-  line-height: 1.2;
+.brand-logo {
+  position: absolute;
+  top: 50%;
+  left: calc(var(--edge-gutter, 18px) * -1);
+  display: block;
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+  transform: translateY(-50%);
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 45%, transparent));
 }
 
 .brand h1 {
-  margin: 2px 0 0;
-  color: var(--text-primary);
-  font-size: 21px;
-  font-weight: 650;
-  line-height: 1.2;
+  margin: 0;
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-tight);
   white-space: nowrap;
-}
-
-.system-status {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 8px;
-}
-
-.status-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  color: var(--text-secondary);
-  font-size: 12px;
-  line-height: 1;
-  white-space: nowrap;
-}
-
-.status-pill.is-online {
-  color: var(--cyan);
-}
-
-.status-pill::before {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: currentColor;
-  content: "";
+  background: var(--brand-text-gradient);
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 12px color-mix(in srgb, var(--accent) 38%, transparent));
 }
 
 @media (max-width: 1023px) {
@@ -106,15 +82,12 @@
   }
 
   .brand h1 {
-    font-size: 18px;
+    font-size: var(--text-xl);
   }
 
-  .system-status {
-    gap: 6px;
-  }
-
-  .status-pill {
-    font-size: 11px;
+  .brand-logo {
+    width: 42px;
+    height: 42px;
   }
 }
 
@@ -128,6 +101,20 @@
 
   .brand h1 {
     white-space: normal;
+    text-align: left;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    max-width: 100%;
+    gap: 10px;
+    text-align: left;
+  }
+
+  .brand-logo {
+    position: static;
+    transform: none;
   }
 }
 </style>

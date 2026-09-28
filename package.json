@@ -9,20 +9,27 @@
     "build": "vue-tsc -b && vite build",
     "build:deck": "vue-tsc -b && vite build --mode deck-gl",
     "typecheck": "vue-tsc -b",
+    "test": "tsc -p tsconfig.test.json && node --import ./scripts/registerTestAliases.mjs --test \"dist-test/tests/**/*.test.js\"",
     "preview": "vite preview",
     "preview:deck": "vite preview --mode deck-gl",
     "lint": "oxlint .",
     "lint:fix": "oxlint --fix .",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
+    "check:tokens": "node scripts/checkDesignTokens.mjs",
+    "check:contrast": "node scripts/checkContrast.mjs",
     "prepare": "husky"
   },
   "dependencies": {
+    "axios": "^1.20.0",
     "bootstrap-icons": "^1.13.1",
     "pinia": "^4.0.3",
     "pinia-plugin-persistedstate": "^4.7.1",
+    "reka-ui": "^2.10.4",
+    "shpjs": "^6.2.0",
     "vite-plugin-static-copy": "^4.1.1",
-    "vue": "^3.5.41"
+    "vue": "^3.5.41",
+    "vue-router": "^5.3.1"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",

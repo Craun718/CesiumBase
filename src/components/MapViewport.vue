@@ -1,18 +1,15 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from "vue"
-import { useMapController } from "../map"
+import { onActivated, onBeforeUnmount, onMounted, ref } from "vue"
+import { useMapController, type MapController, type MapRenderingProfile } from "@/map"
 import MapCompass from "./MapCompass.vue"
 
-const mapController = useMapController()
-const mapContainer = ref<HTMLDivElement>()
-const cameraHeading = ref(mapController.getCameraHeading())
-let disposeCameraHeadingChange: (() => void) | undefined
-
-withDefaults(
+const props = withDefaults(
   defineProps<{
+    controller?: MapController
     compassVisible?: boolean
     northLocked?: boolean
     viewCenterVisible?: boolean
+    renderingProfile?: MapRenderingProfile
   }>(),
   {
     compassVisible: false,
@@ -21,10 +18,17 @@ withDefaults(
   },
 )
 
+const mapController = props.controller ?? useMapController()
+const mapContainer = ref<HTMLDivElement>()
+const cameraHeading = ref(mapController.getCameraHeading())
+let disposeCameraHeadingChange: (() => void) | undefined
+
 onMounted(async () => {
   if (mapContainer.value) {
     try {
-      await mapController.mount(mapContainer.value)
+      await mapController.mount(mapContainer.value, {
+        renderingProfile: props.renderingProfile ?? "primary",
+      })
     } catch (error) {
       console.error("[map] 引擎挂载失败", error)
       throw error
@@ -38,7 +42,11 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   disposeCameraHeadingChange?.()
-  mapController?.unmount()
+  mapController.unmount()
+})
+
+onActivated(() => {
+  mapController.resize()
 })
 </script>
 
@@ -87,9 +95,9 @@ onBeforeUnmount(() => {
   transform: translateY(-50%);
   background: linear-gradient(
     to right,
-    rgba(72, 225, 255, 0.88) 0 28%,
+    var(--accent-line) 0 28%,
     transparent 28% 72%,
-    rgba(72, 225, 255, 0.88) 72% 100%
+    var(--accent-line) 72% 100%
   );
 }
 
@@ -101,20 +109,20 @@ onBeforeUnmount(() => {
   transform: translateX(-50%);
   background: linear-gradient(
     to bottom,
-    rgba(72, 225, 255, 0.88) 0 28%,
+    var(--accent-line) 0 28%,
     transparent 28% 72%,
-    rgba(72, 225, 255, 0.88) 72% 100%
+    var(--accent-line) 72% 100%
   );
 }
 
 .marker-ring {
   inset: 11px;
-  border: 1px solid rgba(72, 225, 255, 0.88);
+  border: 1px solid var(--accent-line);
   border-radius: 50%;
   background: transparent;
   box-shadow:
-    0 0 0 2px rgba(3, 9, 19, 0.36),
-    inset 0 0 6px rgba(72, 225, 255, 0.24);
+    0 0 0 2px color-mix(in srgb, var(--color-abyss) 36%, transparent),
+    inset 0 0 6px var(--accent-glow);
 }
 
 .marker-dot {
@@ -124,6 +132,6 @@ onBeforeUnmount(() => {
   height: 3px;
   border-radius: 50%;
   transform: translate(-50%, -50%);
-  box-shadow: 0 0 6px rgba(3, 9, 19, 0.9);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--color-abyss) 90%, transparent);
 }
 </style>

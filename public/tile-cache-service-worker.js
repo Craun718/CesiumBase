@@ -16,6 +16,7 @@ const LEGACY_TILE_CACHE_NAME = "cesium-tianditu-tiles-v1"
 const TILE_CACHE_HIGH_WATER_MARK = 16384
 const TILE_CACHE_LOW_WATER_MARK = 12288
 const TILE_CACHE_DELETE_BATCH_SIZE = 128
+const TILE_USAGE_FLUSH_DELAY_MS = 500
 const TILE_USAGE_DATABASE_NAME = "cesium-tile-cache-v2"
 const TILE_USAGE_STORE_NAME = "tile-usage"
 const TIANDITU_TILE_HOST = /^t\d+\.tianditu\.gov\.cn$/
@@ -34,6 +35,21 @@ let cachedTileCount = null
 
 /** 防止并发写入同时触发多轮批量清理。 */
 let isTrimmingTileCache = false
+
+/** 短时间内待合并写入的瓦片使用记录。 */
+/** @type {Set<string>} */
+let pendingTileUsageKeys = new Set()
+
+/** 等待某条使用记录完成写入的回调，按缓存键聚合。 */
+/** @type {Map<string, Array<() => void>>} */
+let tileUsageWaiters = new Map()
+
+/** 待执行的批量写入定时器。 */
+let tileUsageFlushTimer = null
+
+/** 当前正在执行的批量写入任务，避免 IndexedDB 事务重叠。 */
+/** @type {Promise<void> | null} */
+let tileUsageFlushTask = null
 
 /** Service Worker 全局对象，用于获得 fetch / activate 等专用事件类型。 */
 /** @type {ServiceWorkerGlobalScope} */
@@ -209,25 +225,99 @@ function openTileUsageDatabase() {
 }
 
 /**
- * 异步记录瓦片最近使用时间。
+ * 延迟合并记录瓦片最近使用时间，避免放大时每个瓦片各开一个写事务。
  * @param {string} cacheKey
  * @returns {Promise<void>}
  */
-async function touchTileUsage(cacheKey) {
+function touchTileUsage(cacheKey) {
+  return new Promise((resolve) => {
+    pendingTileUsageKeys.add(cacheKey)
+    const keyWaiters = tileUsageWaiters.get(cacheKey)
+    if (keyWaiters) {
+      keyWaiters.push(resolve)
+    } else {
+      tileUsageWaiters.set(cacheKey, [resolve])
+    }
+    scheduleTileUsageFlush()
+  })
+}
+
+/**
+ * 安排下一次使用记录批量写入。
+ */
+function scheduleTileUsageFlush() {
+  if (tileUsageFlushTimer === null && tileUsageFlushTask === null) {
+    tileUsageFlushTimer = setTimeout(() => {
+      tileUsageFlushTimer = null
+      tileUsageFlushTask = flushTileUsage().finally(() => {
+        tileUsageFlushTask = null
+        if (pendingTileUsageKeys.size > 0) scheduleTileUsageFlush()
+      })
+    }, TILE_USAGE_FLUSH_DELAY_MS)
+  }
+}
+
+/**
+ * 将一批瓦片使用记录合并到同一个 IndexedDB 事务。
+ * @returns {Promise<void>}
+ */
+async function flushTileUsage() {
+  const cacheKeys = Array.from(pendingTileUsageKeys)
+  pendingTileUsageKeys.clear()
+  if (cacheKeys.length === 0) return
+
+  const waiters = cacheKeys.map((cacheKey) => tileUsageWaiters.get(cacheKey) ?? [])
+  for (const cacheKey of cacheKeys) {
+    tileUsageWaiters.delete(cacheKey)
+  }
+
   const database = await openTileUsageDatabase()
-  if (!database) return
+  if (!database) {
+    resolveTileUsageWaiters(waiters)
+    return
+  }
 
   try {
-    await createIndexedDBPromise((resolve, reject) => {
-      const transaction = database.transaction(TILE_USAGE_STORE_NAME, "readwrite")
-      transaction.oncomplete = () => resolve(undefined)
-      transaction.onabort = () => reject(transaction.error)
-      transaction.onerror = () => reject(transaction.error)
-      transaction.objectStore(TILE_USAGE_STORE_NAME).put({ cacheKey, lastUsedAt: Date.now() })
-    })
+    await writeTileUsageRecords(database, cacheKeys)
   } catch (error) {
     console.warn("[TileCache] 瓦片使用记录更新失败", error)
+  } finally {
+    resolveTileUsageWaiters(waiters)
   }
+}
+
+/**
+ * 通知调用方本批使用记录已经完成处理。
+ * @param {Array<Array<() => void>>} waiters
+ */
+function resolveTileUsageWaiters(waiters) {
+  for (const keyWaiters of waiters) {
+    for (const resolve of keyWaiters) {
+      resolve()
+    }
+  }
+}
+
+/**
+ * 写入一批瓦片使用时间。
+ * @param {IDBDatabase} database
+ * @param {string[]} cacheKeys
+ * @returns {Promise<void>}
+ */
+function writeTileUsageRecords(database, cacheKeys) {
+  return createIndexedDBPromise((resolve, reject) => {
+    const transaction = database.transaction(TILE_USAGE_STORE_NAME, "readwrite")
+    const store = transaction.objectStore(TILE_USAGE_STORE_NAME)
+    const lastUsedAt = Date.now()
+
+    for (const cacheKey of cacheKeys) {
+      store.put({ cacheKey, lastUsedAt })
+    }
+
+    transaction.oncomplete = () => resolve(undefined)
+    transaction.onabort = () => reject(transaction.error)
+    transaction.onerror = () => reject(transaction.error)
+  })
 }
 
 /**

@@ -1,65 +1,50 @@
 import * as Cesium from "cesium"
+import type { AxiosInstance } from "axios"
+import { appHttpClient, getJsonResponse } from "../../../http/httpClient.js"
+import { TERRAIN_MASK } from "../../themeColors.js"
 import {
   closeRing,
   ensureRingOrientation,
   forEachProvincePolygon,
-  forEachProvinceRing,
   isProvinceGeometry,
   type GeoJsonPosition,
   type ProvinceCollection,
   type ProvinceGeometry,
-} from "./geojson"
+} from "./geojson.js"
 
-const provinceBoundaryUrl = "/vector/中国_省.geojson"
+const provinceBoundaryUrl = "/vector/广西壮族自治区_自治区.geojson"
 const guangxiProvinceName = "广西壮族自治区"
-const otherProvinceBoundaryZIndex = 1
-const guangxiBoundaryZIndex = 2
-const otherProvinceColor = Cesium.Color.fromCssColorString("#00008b").withAlpha(0.8)
-const guangxiColor = Cesium.Color.fromCssColorString("#eab308")
-const outsideGuangxiColor = Cesium.Color.fromCssColorString("#031b4e").withAlpha(0.65)
+const outsideGuangxiColor = Cesium.Color.fromCssColorString(TERRAIN_MASK).withAlpha(0.65)
 
-export async function addProvinceBoundaries(viewer: Cesium.Viewer) {
+export async function addProvinceBoundaries(
+  viewer: Cesium.Viewer,
+  httpClient: AxiosInstance = appHttpClient,
+): Promise<Cesium.Entity | undefined> {
   try {
-    const response = await fetch(provinceBoundaryUrl)
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`)
-    }
-
-    const data = (await response.json()) as ProvinceCollection
+    const data = await getJsonResponse<ProvinceCollection>(httpClient, provinceBoundaryUrl)
 
     if (viewer.isDestroyed()) {
       return
-    }
-
-    for (const feature of data.features) {
-      if (!isProvinceGeometry(feature.geometry)) {
-        continue
-      }
-
-      const isGuangxi = feature.properties.name === guangxiProvinceName
-      const color = isGuangxi ? guangxiColor : otherProvinceColor
-      const width = isGuangxi ? 4 : 2
-      const zIndex = isGuangxi ? guangxiBoundaryZIndex : otherProvinceBoundaryZIndex
-
-      forEachProvinceRing(feature.geometry, (ring) => {
-        addBoundary(viewer, ring, color, width, zIndex)
-      })
     }
 
     const guangxiFeature = data.features.find(
       (feature) => feature.properties.name === guangxiProvinceName,
     )
 
-    if (guangxiFeature && isProvinceGeometry(guangxiFeature.geometry)) {
-      addOutsideGuangxiMask(viewer, guangxiFeature.geometry)
+    if (!guangxiFeature || !isProvinceGeometry(guangxiFeature.geometry)) {
+      return
     }
+
+    return addOutsideGuangxiMask(viewer, guangxiFeature.geometry)
   } catch (error) {
     console.error("Failed to load province boundaries", error)
   }
 }
 
-function addOutsideGuangxiMask(viewer: Cesium.Viewer, geometry: ProvinceGeometry) {
+function addOutsideGuangxiMask(
+  viewer: Cesium.Viewer,
+  geometry: ProvinceGeometry,
+): Cesium.Entity | undefined {
   const maskOuterRing: GeoJsonPosition[] = [
     [40, 0],
     [170, 0],
@@ -82,10 +67,10 @@ function addOutsideGuangxiMask(viewer: Cesium.Viewer, geometry: ProvinceGeometry
   })
 
   if (guangxiHoles.length === 0) {
-    return
+    return undefined
   }
 
-  viewer.entities.add({
+  return viewer.entities.add({
     polygon: {
       hierarchy: new Cesium.PolygonHierarchy(
         toCartesianPositionsAtHeight(closeRing(ensureRingOrientation(maskOuterRing, false)), 0),
@@ -97,38 +82,6 @@ function addOutsideGuangxiMask(viewer: Cesium.Viewer, geometry: ProvinceGeometry
       zIndex: 0,
     },
   })
-}
-
-function addBoundary(
-  viewer: Cesium.Viewer,
-  ring: GeoJsonPosition[],
-  color: Cesium.Color,
-  width: number,
-  zIndex: number,
-) {
-  const closedRing = closeRing(ring)
-
-  if (closedRing.length < 3) {
-    return
-  }
-
-  viewer.entities.add({
-    polyline: {
-      positions: toCartesianPositions(closedRing),
-      width,
-      material: color,
-      arcType: Cesium.ArcType.GEODESIC,
-      clampToGround: true,
-      classificationType: Cesium.ClassificationType.BOTH,
-      zIndex,
-    },
-  })
-}
-
-function toCartesianPositions(ring: GeoJsonPosition[]) {
-  const degrees = ring.flatMap((position) => [position[0], position[1]])
-
-  return Cesium.Cartesian3.fromDegreesArray(degrees)
 }
 
 function toCartesianPositionsAtHeight(ring: GeoJsonPosition[], height: number) {
